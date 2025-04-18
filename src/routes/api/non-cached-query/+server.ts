@@ -29,7 +29,9 @@ export const GET: RequestHandler = async ({ platform }) => {
   try {
     startTime = performance.now();
 
-    results = await sql<City[]>`SELECT * FROM public.cities LIMIT 1;`;
+    results = await sql<City[]>`
+    SELECT * FROM public.cities ORDER BY RANDOM() LIMIT 1;
+    `;
 
     endTime = performance.now();
   } catch (e: any) {

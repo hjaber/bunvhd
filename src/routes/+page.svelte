@@ -83,7 +83,7 @@
   <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
     <div class="border p-4 rounded shadow">
       <h2 class="text-xl font-semibold mb-2">
-        Cached Query ({cachedResult?.binding ?? "N/A"})
+        Hyperdrive Cached Query ({cachedResult?.binding ?? "N/A"})
       </h2>
       {#if cachedResult}
         {#if cachedResult.error}
@@ -105,7 +105,7 @@
 
     <div class="border p-4 rounded shadow">
       <h2 class="text-xl font-semibold mb-2">
-        Non-Cached Query ({nonCachedResult?.binding ?? "N/A"})
+        Hyperdrive Non-Cached Query ({nonCachedResult?.binding ?? "N/A"})
       </h2>
       {#if nonCachedResult}
         {#if nonCachedResult.error}
