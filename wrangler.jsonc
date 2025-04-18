@@ -17,8 +17,14 @@
   "compatibility_flags": ["nodejs_compat"],
   "hyperdrive": [
     {
-      "binding": "HYPERDRIVE",
-      "id": "c50274553c25467d83bb972235230b8f"
+      "binding": "CACHED-DB-BUNVHD",
+      "id": "be52a5cfb77c44459177e3e5b0bc7a34",
+      "localConnectionString": "postgres://restful:e2LdvBcLLA9fP.2KeWvkUpKzJFh79YcWogdcPwqX.yf7KDG2XdqKkGN8vgWnP8E@localhost:5433/grams14"
+    },
+    {
+      "binding": "NO-CACHED-DB-BUNVHD",
+      "id": "6e9cff616dda429ba0fbad65fcbc148a",
+      "localConnectionString": "postgres://restful:e2LdvBcLLA9fP.2KeWvkUpKzJFh79YcWogdcPwqX.yf7KDG2XdqKkGN8vgWnP8E@localhost:5433/grams14"
     }
   ]
   /**
