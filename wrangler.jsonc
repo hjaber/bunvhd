@@ -11,6 +11,9 @@
     "binding": "ASSETS",
     "directory": ".svelte-kit/cloudflare"
   },
+  "placement": {
+    "mode": "smart"
+  },
   "observability": {
     "enabled": true
   },
