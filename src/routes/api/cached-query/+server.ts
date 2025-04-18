@@ -13,7 +13,6 @@ type City = {
   language_spoken: string | null;
 };
 export const GET: RequestHandler = async ({ platform }) => {
-  console.log("Cached DB Query Handler Invoked");
   if (!platform?.env?.["CACHED-DB-BUNVHD"]) {
     return json({ error: "Cached DB binding not found." }, { status: 500 });
   }
