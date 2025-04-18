@@ -1,27 +1,24 @@
 <script lang="ts">
   import { cubicOut } from "svelte/easing";
-  // Use Tween from svelte/motion (already runes-compatible)
   import { Tween } from "svelte/motion";
-  // Import $state for reactive state management
 
-  // --- Interfaces ---
   interface QueryResponse {
     data: any | any[] | null;
-    timeMs: number; // Server-reported processing time
+    timeMs: number;
     binding: string;
     error?: string | null;
   }
 
   interface BenchmarkResult {
-    clientTime: number | null; // Full round-trip time (measured by client)
-    serverTime: number | null; // Processing time (reported by server)
-    binding: string | null; // Source identifier (e.g., DB name, cache status)
+    clientTime: number | null;
+    serverTime: number | null;
+    binding: string | null;
     error: string | null;
   }
 
   interface RunResult {
     runId: number;
-    results: Record<string, BenchmarkResult>; // Use string index for endpoint IDs
+    results: Record<string, BenchmarkResult>;
   }
 
   interface AverageResult {
@@ -29,7 +26,6 @@
     avgServerTime: number | null;
   }
 
-  // --- Constants ---
   const ENDPOINTS = [
     {
       id: "hyperdriveCached",
@@ -47,31 +43,29 @@
     },
     {
       id: "bunNonCached",
-      url: "https://bunvhd-db-eu-east.tripcafe.org/", // Remote API
-      label: "Bun REST Non-Cached",
+      url: "https://bunvhd-db-eu-east.tripcafe.org/",
+      label: "Bun REST (Helsinki 🇫🇮) Non-Cached",
       description:
-        "Direct query to Bun REST API (Helsinki) with no server-side caching requested.",
+        "Direct query to Bun REST API (Helsinki 🇫🇮) with no server-side caching requested.",
     },
     {
       id: "bunCached",
-      url: "https://bunvhd-db-eu-east.tripcafe.org/?cacheTtl=10", // Remote API with cache hint
-      label: "Bun REST Cached (10s)",
+      url: "https://bunvhd-db-eu-east.tripcafe.org/?cacheTtl=30",
+      label: "Bun REST (Helsinki 🇫🇮) Cached (30s)",
       description:
-        "Direct query to Bun REST API (Helsinki) requesting server/CDN caching for 10 seconds via Cache-Control header.",
+        "Direct query to Bun REST API (Helsinki 🇫🇮) requesting server/CDN caching for 30 seconds via Cache-Control header.",
     },
   ] as const;
 
   type EndpointId = (typeof ENDPOINTS)[number]["id"];
 
   const RUN_COUNT = 3;
-  const DELAY_BETWEEN_RUNS_MS = 1000; // Delay to allow caches to potentially expire/settle
+  const DELAY_BETWEEN_RUNS_MS = 1000;
 
-  // --- Reactive State using $state ---
   let benchmarkRuns = $state<RunResult[]>([]);
   let isLoading = $state(false);
   let overallError = $state<string | null>(null);
 
-  // Initialize averageResults directly using $state
   const initialAverageResults = Object.fromEntries(
     ENDPOINTS.map((ep) => [ep.id, { avgClientTime: null, avgServerTime: null }])
   ) as Record<EndpointId, AverageResult>;
@@ -79,12 +73,8 @@
     initialAverageResults
   );
 
-  // --- Motion ---
-  // Tween remains the same, access its value with .current in the template
   const progress = new Tween(0, { duration: 300, easing: cubicOut });
 
-  // --- Helper Functions ---
-  /** Shuffles an array in place. */
   function shuffleArray<T>(array: T[]): T[] {
     let currentIndex = array.length;
     while (currentIndex !== 0) {
@@ -98,54 +88,35 @@
     return array;
   }
 
-  /** Creates a promise that resolves after a specified delay. */
   function delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  /** Formats time in milliseconds for display. */
   function formatTime(timeMs: number | null): string {
     if (timeMs === null || timeMs === undefined) return "N/A";
-    // Show more precision for very small numbers
     if (timeMs < 10) return `${timeMs.toFixed(2)} ms`;
     return `${timeMs.toFixed(1)} ms`;
   }
 
-  // --- Core Logic Functions ---
-
-  /**
-   * Measures the time taken for a fetch request and parses the result.
-   * Calculates 'clientTime' (network round-trip + server processing) and
-   * extracts 'serverTime' (server-reported processing) from the response.
-   */
   async function measureFetch(url: string): Promise<BenchmarkResult> {
     const startTime = performance.now();
     try {
-      // Fetch the data
-      // 'cache: "no-cache"' tells the BROWSER not to use its local cache.
-      // It DOES NOT prevent intermediate caches (like CDNs) from serving
-      // cached content if the server response has appropriate Cache-Control headers.
       const response = await fetch(url, {
         cache: "no-cache",
         headers: { Accept: "application/json" },
       });
 
-      // Calculate client-side time immediately after response headers are received.
-      // This includes network latency (request+response) and server processing time.
       const clientTime = performance.now() - startTime;
 
-      // Handle HTTP errors
       if (!response.ok) {
         const errorText = await response
           .text()
           .catch(() => "Could not read error body");
-        // Provide informative error including status and truncated text
         throw new Error(
           `HTTP ${response.status} ${response.statusText}: ${errorText.substring(0, 200)}`
         );
       }
 
-      // Parse the JSON response
       let jsonResult: Partial<QueryResponse>;
       try {
         jsonResult = await response.json();
@@ -154,8 +125,6 @@
         throw new Error(`Invalid JSON response received.`);
       }
 
-      // Validate the structure of the JSON response
-      // 'timeMs' is the server-reported processing time.
       if (
         typeof jsonResult?.timeMs !== "number" ||
         typeof jsonResult?.binding !== "string"
@@ -166,18 +135,15 @@
         );
       }
 
-      // Return successful benchmark result
       return {
-        clientTime: clientTime, // Full round-trip + server process time
-        serverTime: jsonResult.timeMs, // Server-reported process time ONLY
+        clientTime: clientTime,
+        serverTime: jsonResult.timeMs,
         binding: jsonResult.binding,
-        error: jsonResult.error ?? null, // Use null if error is missing or undefined
+        error: jsonResult.error ?? null,
       };
     } catch (error: any) {
-      // Handle fetch or processing errors
       const clientTimeSoFar = performance.now() - startTime;
       console.error(`Error fetching ${url}:`, error);
-      // Return error result, including time spent before failure
       return {
         clientTime: clientTimeSoFar,
         serverTime: null,
@@ -187,19 +153,15 @@
     }
   }
 
-  /** Runs the full benchmark sequence across all endpoints. */
   async function runBenchmark() {
-    // --- Reset State ---
     isLoading = true;
     overallError = null;
     benchmarkRuns = [];
-    averageResults = { ...initialAverageResults }; // Reset averages
-    progress.set(0, { duration: 0 }); // Reset progress tween immediately
+    averageResults = { ...initialAverageResults };
+    progress.set(0, { duration: 0 });
 
     try {
-      // --- Loop Through Runs ---
       for (let i = 0; i < RUN_COUNT; i++) {
-        // Add delay between runs (except before the first)
         if (i > 0) {
           await delay(DELAY_BETWEEN_RUNS_MS);
         }
@@ -207,14 +169,12 @@
         const currentRunId = i + 1;
         console.log(`Starting Run ${currentRunId}...`);
 
-        // Shuffle endpoint order for each run to mitigate order effects
         const shuffledEndpoints = shuffleArray([...ENDPOINTS]);
         console.log(
           ` Run ${currentRunId} order:`,
           shuffledEndpoints.map((e) => e.label)
         );
 
-        // --- Initialize Current Run Results Placeholder ---
         const currentRunResults: Record<string, BenchmarkResult> = {};
         ENDPOINTS.forEach((ep) => {
           currentRunResults[ep.id] = {
@@ -224,39 +184,33 @@
             error: null,
           };
         });
-        // Add the placeholder run to the state array (create new array for reactivity)
         benchmarkRuns = [
           ...benchmarkRuns,
           { runId: currentRunId, results: currentRunResults },
         ];
 
-        // --- Execute Fetches in Parallel ---
         const fetchPromises = shuffledEndpoints.map((endpoint) =>
           measureFetch(endpoint.url).then((result) => ({
-            id: endpoint.id, // Include ID to map results back
+            id: endpoint.id,
             result,
           }))
         );
 
-        // Wait for all fetches in the current run to complete (or fail)
         const settledResults = await Promise.allSettled(fetchPromises);
 
-        // --- Process Settled Results ---
         const finalRunResults: Record<string, BenchmarkResult> = {};
         settledResults.forEach((settledResult, index) => {
-          const endpointId = shuffledEndpoints[index].id; // Get ID from shuffled order
+          const endpointId = shuffledEndpoints[index].id;
           if (settledResult.status === "fulfilled") {
-            // If measureFetch resolved (even if it returned an error structure)
             const { id, result } = settledResult.value;
             finalRunResults[id] = result;
           } else {
-            // If the measureFetch promise itself rejected unexpectedly
             console.error(
               `Unexpected promise rejection for ${endpointId}:`,
               settledResult.reason
             );
             finalRunResults[endpointId] = {
-              clientTime: null, // Or potentially capture time if possible
+              clientTime: null,
               serverTime: null,
               binding: "Fatal Error",
               error:
@@ -265,43 +219,32 @@
           }
         });
 
-        // --- Update Benchmark Runs State ---
-        // Find the run by ID and update its results. Create a new array.
         benchmarkRuns = benchmarkRuns.map((run) =>
           run.runId === currentRunId
             ? { ...run, results: finalRunResults }
             : run
         );
 
-        // Update progress tween smoothly
         await progress.set(((i + 1) / RUN_COUNT) * 100);
       }
     } catch (error: any) {
-      // Handle errors during the benchmark sequence itself
       console.error("Benchmark sequence failed:", error);
       overallError =
         error.message || "An unexpected error stopped the benchmark.";
     } finally {
-      // --- Final State Updates ---
-      isLoading = false; // Update loading state
+      isLoading = false;
       if (!overallError) {
-        // Ensure progress bar reaches 100% on success
         progress.set(100);
-        // Calculate averages only if the benchmark completed without fatal error
         calculateAverages();
       }
     }
   }
 
-  /** Calculates average times from runs 2 and 3. */
   function calculateAverages() {
-    // Ensure enough runs completed successfully
     if (benchmarkRuns.length < RUN_COUNT) return;
 
-    // Filter for the runs to include in the average (Runs 2 and 3)
-    // Exclude Run 1 as a potential "warm-up"
     const relevantRuns = benchmarkRuns.filter((run) => run.runId >= 2);
-    if (relevantRuns.length === 0) return; // No relevant runs found
+    if (relevantRuns.length === 0) return;
 
     const newAverages = {} as Record<EndpointId, AverageResult>;
 
@@ -311,10 +254,8 @@
       let totalServerTime = 0;
       let validServerCount = 0;
 
-      // Iterate through the relevant runs
       for (const run of relevantRuns) {
         const result = run.results[endpoint.id];
-        // Only include successful results (no errors) in averages
         if (result && result.error === null) {
           if (typeof result.clientTime === "number") {
             totalClientTime += result.clientTime;
@@ -327,7 +268,6 @@
         }
       }
 
-      // Calculate averages, handle division by zero
       newAverages[endpoint.id] = {
         avgClientTime:
           validClientCount > 0 ? totalClientTime / validClientCount : null,
@@ -335,7 +275,6 @@
           validServerCount > 0 ? totalServerTime / validServerCount : null,
       };
     }
-    // Update the averageResults state variable
     averageResults = newAverages;
     console.log("Averages (Runs 2 & 3):", averageResults);
   }
@@ -347,7 +286,8 @@
       Database Performance Benchmark
     </h1>
     <p class="text-gray-600">
-      Comparing Cloudflare Hyperdrive vs. direct Bun REST API access.
+      Comparing Cloudflare Hyperdrive vs. direct Bun REST API access (Helsinki
+      🇫🇮).
     </p>
   </header>
 
@@ -355,48 +295,46 @@
     <h2 class="text-lg font-semibold text-gray-700 mb-2">How it Works</h2>
     <div class="text-sm text-gray-700 space-y-2">
       <p>
-        This benchmark runs {RUN_COUNT} rounds of tests against different API endpoints.
-        Each round fetches data from all endpoints in a random order. The first round
-        is often considered a "warm-up" and is excluded from the final average calculation.
+        This tool runs {RUN_COUNT} test rounds against several API endpoints. Each
+        round queries all endpoints in a random order. The first round acts as a
+        warm-up and is <strong>not included</strong> in the final average results.
       </p>
-      <p>
-        <strong>Client Time:</strong> Measured in
-        <em class="font-semibold">your browser</em>
-        (here in {Intl.DateTimeFormat().resolvedOptions().timeZone ??
-          "your timezone"}). It's the total time from sending the request until
-        receiving the response headers.
-        <strong class="text-red-600">Includes network latency</strong>
-        (round trip time) + server processing time. Higher latency to distant servers
-        (like Helsinki) will significantly increase this time.
-      </p>
-      <p>
-        <strong>Server Time:</strong> Measured
-        <em class="font-semibold">on the server</em>
-        (Helsinki). It's the time the server reports it spent processing the request
-        (e.g., running the database query).
-        <strong class="text-blue-600">Does not include network latency.</strong>
-      </p>
-      <p><strong>Caching Notes:</strong></p>
-      <ul class="list-disc list-inside pl-4 space-y-1 text-sm text-gray-700">
+      <ul class="list-disc list-inside pl-4 space-y-1">
         <li>
-          The <code class="text-xs bg-gray-200 px-1 rounded">fetch</code> uses
-          <code class="text-xs bg-gray-200 px-1 rounded">cache: "no-cache"</code
-          >
-          to bypass the browser's local cache.
+          <strong>Client Time:</strong> Measured in <em>your browser</em>. This
+          is the total time from sending a request to receiving the server's
+          initial response. It includes both
+          <strong class="text-red-600">network travel time (latency)</strong>
+          and <strong class="text-red-600">server processing time</strong>.
+          Network latency increases with distance (e.g., connecting to Helsinki
+          🇫🇮).
         </li>
         <li>
-          The "Bun REST Cached" endpoint returns a
-          <code class="text-xs bg-gray-200 px-1 rounded">Cache-Control</code>
-          header. Intermediate caches (like CDNs) might serve cached responses, leading
-          to much lower <strong class="font-semibold">Client Time</strong>
-          even with
-          <code class="text-xs bg-gray-200 px-1 rounded">cache: "no-cache"</code
+          <strong>Server Time:</strong> Measured <em>on the server</em> and
+          reported by the API. For this benchmark, it specifically measures the
+          <strong class="text-blue-600">database query execution time</strong>.
+          It
+          <strong class="text-blue-600">does not include network latency</strong
           >.
         </li>
+      </ul>
+      <p><strong>Caching:</strong></p>
+      <ul class="list-disc list-inside pl-4 space-y-1 text-sm text-gray-700">
         <li>
-          Hyperdrive's caching mechanism is different and managed via connection
-          Hyperdrive's caching mechanism is different and managed via connection
-          strings/pools.
+          Your browser is told to re-check with the server for every request (<code
+            class="text-xs bg-gray-200 px-1 rounded">cache: "no-cache"</code
+          >), preventing local browser caching.
+        </li>
+        <li>
+          The "Bun REST Cached (30s)" endpoint uses a <code
+            class="text-xs bg-gray-200 px-1 rounded">Cache-Control</code
+          >
+          header allowing CDNs to cache its response for 30 seconds. This can
+          result in much faster <strong>Client Times</strong> for repeated
+          requests within that window, even with browser caching disabled, as
+          the response might come from a nearby CDN edge instead of the origin
+          server. The <strong>Server Time</strong> reported might still reflect the
+          original database query time.
         </li>
       </ul>
     </div>
@@ -483,7 +421,7 @@
                     class="font-medium text-gray-800 mb-2"
                     title={endpoint.description}
                   >
-                    {endpoint.label}
+                    {@html endpoint.label}
                   </h4>
                   {#if result.error}
                     <div class="text-red-600">
@@ -497,7 +435,7 @@
                     </div>
                   {:else if result.binding === "Pending..."}
                     <div class="text-gray-400 italic text-center py-2">
-                      {result.binding}
+                      Pending...
                     </div>
                   {:else}
                     <dl class="space-y-1 text-sm">
@@ -517,17 +455,6 @@
                         <dt class="text-gray-600">Server:</dt>
                         <dd class="text-gray-900 font-medium text-right">
                           {formatTime(result.serverTime)}
-                        </dd>
-                      </div>
-                      <div
-                        class="flex justify-between items-baseline gap-2 mt-1 pt-1 border-t border-gray-100"
-                      >
-                        <dt class="text-xs text-gray-500">Source:</dt>
-                        <dd
-                          class="text-xs text-gray-500 font-mono text-right truncate"
-                          title={result.binding ?? ""}
-                        >
-                          {result.binding ?? "N/A"}
                         </dd>
                       </div>
                     </dl>
@@ -555,7 +482,7 @@
                     class="font-medium text-gray-800 mb-2"
                     title={endpoint.description}
                   >
-                    {endpoint.label}
+                    {@html endpoint.label}
                   </h4>
                   {#if avg}
                     <dl class="space-y-1 text-sm">
@@ -612,7 +539,7 @@
                   class="px-4 py-3 border-b border-r border-gray-300 font-semibold min-w-[200px] last:border-r-0"
                   title={endpoint.description}
                 >
-                  {endpoint.label}
+                  {@html endpoint.label}
                   <div class="font-normal normal-case text-gray-500 mt-1">
                     <span
                       class="inline-block cursor-help"
@@ -657,7 +584,7 @@
                       </div>
                     {:else if result.binding === "Pending..."}
                       <div class="text-gray-400 italic text-center py-4">
-                        {result.binding}
+                        Pending...
                       </div>
                     {:else}
                       <dl>
@@ -677,17 +604,6 @@
                           <dt class="font-medium text-gray-900">Server:</dt>
                           <dd class="text-gray-700 text-right">
                             {formatTime(result.serverTime)}
-                          </dd>
-                        </div>
-                        <div
-                          class="flex justify-between items-baseline gap-2 mt-1 pt-1 border-t border-gray-200"
-                        >
-                          <dt class="text-xs text-gray-500">Source:</dt>
-                          <dd
-                            class="text-xs text-gray-500 font-mono text-right truncate"
-                            title={result.binding ?? ""}
-                          >
-                            {result.binding ?? "N/A"}
                           </dd>
                         </div>
                       </dl>
@@ -758,64 +674,57 @@
 </div>
 
 <style>
-  /* Ensure definition list items flow well */
   dl dt {
-    flex-shrink: 0; /* Prevent labels from shrinking */
+    flex-shrink: 0;
   }
   dl dd {
-    flex-grow: 1; /* Allow values to take remaining space */
-    min-width: 50px; /* Ensure some minimum space for values */
+    flex-grow: 1;
+    min-width: 50px;
   }
 
-  /* Improve sticky header/column/footer appearance */
   thead th {
     position: sticky;
     top: 0;
-    z-index: 10; /* Header above body rows */
+    z-index: 10;
   }
   tbody td:first-child,
   tfoot td:first-child,
   thead th:first-child {
     position: sticky;
     left: 0;
-    z-index: 5; /* First column above other cells but below header/footer */
+    z-index: 5;
   }
   thead th:first-child {
-    z-index: 15; /* Corner header above everything */
+    z-index: 15;
   }
   tfoot {
     position: sticky;
     bottom: 0;
-    z-index: 10; /* Footer above body rows */
+    z-index: 10;
   }
   tfoot td:first-child {
-    z-index: 15; /* Footer first cell above footer row */
+    z-index: 15;
   }
 
-  /* Add slight background transition for hover states */
   tbody tr:hover td {
-    background-color: #f9fafb; /* Equivalent to hover:bg-gray-50 */
+    background-color: #f9fafb;
   }
-  /* Ensure sticky column gets hover color */
   tbody tr:hover td:first-child {
     background-color: #f9fafb;
   }
 
-  /* Ensure sticky footer/header cells have correct background */
   thead th,
   tfoot td {
-    background-color: inherit; /* Inherit from thead/tfoot rule */
+    background-color: inherit;
   }
   thead th:first-child {
-    background-color: #f3f4f6; /* bg-gray-100 */
+    background-color: #f3f4f6;
   }
   tfoot td:first-child {
-    background-color: #eff6ff; /* bg-blue-50 */
+    background-color: #eff6ff;
   }
 
-  /* Basic tooltip styling via title attribute */
   [title] {
     cursor: help;
-    /* text-decoration: underline dotted; Optional: adds visual cue */
   }
 </style>

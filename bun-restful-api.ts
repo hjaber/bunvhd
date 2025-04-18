@@ -1,4 +1,4 @@
-// index.ts
+// bun-restful-api.ts
 import { env, file, serve } from "bun";
 import fs from "fs";
 import postgres from "postgres";
