@@ -26,45 +26,106 @@
     avgServerTime: number | null;
   }
 
+  // Reordered endpoints to better group them for comparison
   const ENDPOINTS = [
+    // US East Region - Hyperdrive
     {
-      id: "hyperdriveCached",
+      id: "hyperdriveCachedUSEast",
+      url: "/api/cached-query-us-east",
+      label: "Hyperdrive US East 🇺🇸 Cached",
+      region: "us-east",
+      type: "hyperdrive",
+      cached: true,
+      description:
+        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Cached Connection Pool). Target DB in US East.",
+    },
+    {
+      id: "hyperdriveNonCachedUSEast",
+      url: "/api/non-cached-query-us-east",
+      label: "Hyperdrive US East 🇺🇸 Non-Cached",
+      region: "us-east",
+      type: "hyperdrive",
+      cached: false,
+      description:
+        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Non-Cached Connection Pool). Target DB in US East.",
+    },
+
+    // US East Region - Bun REST
+    {
+      id: "bunCachedUSEast",
+      url: "https://bunvhd-db-us-east.tripcafe.org/?cacheTtl=30",
+      label: "Bun REST US East 🇺🇸 Cached (30s)",
+      region: "us-east",
+      type: "bun-rest",
+      cached: true,
+      description:
+        "Direct query to Bun REST API (US East 🇺🇸) requesting server/CDN caching for 30 seconds via Cache-Control header.",
+    },
+    {
+      id: "bunNonCachedUSEast",
+      url: "https://bunvhd-db-us-east.tripcafe.org/",
+      label: "Bun REST US East 🇺🇸 Non-Cached",
+      region: "us-east",
+      type: "bun-rest",
+      cached: false,
+      description:
+        "Direct query to Bun REST API (US East 🇺🇸) with no server-side caching requested.",
+    },
+
+    // Helsinki Region - Hyperdrive
+    {
+      id: "hyperdriveCachedLocal",
       url: "/api/cached-query",
-      label: "Hyperdrive Cached",
+      label: "Hyperdrive Helsinki 🇫🇮 Cached",
+      region: "helsinki",
+      type: "hyperdrive",
+      cached: true,
       description:
-        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Cached Connection Pool). Server is local.",
+        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Cached Connection Pool). Server is in Helsinki.",
     },
     {
-      id: "hyperdriveNonCached",
+      id: "hyperdriveNonCachedLocal",
       url: "/api/non-cached-query",
-      label: "Hyperdrive Non-Cached",
+      label: "Hyperdrive Helsinki 🇫🇮 Non-Cached",
+      region: "helsinki",
+      type: "hyperdrive",
+      cached: false,
       description:
-        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Non-Cached Connection Pool). Server is local.",
+        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Non-Cached Connection Pool). Server is in Helsinki.",
     },
+
+    // Helsinki Region - Bun REST
     {
-      id: "bunNonCached",
-      url: "https://bunvhd-db-eu-east.tripcafe.org/",
-      label: "Bun REST (Helsinki 🇫🇮) Non-Cached",
-      description:
-        "Direct query to Bun REST API (Helsinki 🇫🇮) with no server-side caching requested.",
-    },
-    {
-      id: "bunCached",
+      id: "bunCachedHEL",
       url: "https://bunvhd-db-eu-east.tripcafe.org/?cacheTtl=30",
-      label: "Bun REST (Helsinki 🇫🇮) Cached (30s)",
+      label: "Bun REST Helsinki 🇫🇮 Cached (30s)",
+      region: "helsinki",
+      type: "bun-rest",
+      cached: true,
       description:
         "Direct query to Bun REST API (Helsinki 🇫🇮) requesting server/CDN caching for 30 seconds via Cache-Control header.",
+    },
+    {
+      id: "bunNonCachedHEL",
+      url: "https://bunvhd-db-eu-east.tripcafe.org/",
+      label: "Bun REST Helsinki 🇫🇮 Non-Cached",
+      region: "helsinki",
+      type: "bun-rest",
+      cached: false,
+      description:
+        "Direct query to Bun REST API (Helsinki 🇫🇮) with no server-side caching requested.",
     },
   ] as const;
 
   type EndpointId = (typeof ENDPOINTS)[number]["id"];
 
   const RUN_COUNT = 3;
-  const DELAY_BETWEEN_RUNS_MS = 1000;
+  const DELAY_BETWEEN_RUNS_MS = 3000;
 
   let benchmarkRuns = $state<RunResult[]>([]);
   let isLoading = $state(false);
   let overallError = $state<string | null>(null);
+  let benchmarkStatus = $state<string | null>(null);
 
   const initialAverageResults = Object.fromEntries(
     ENDPOINTS.map((ep) => [ep.id, { avgClientTime: null, avgServerTime: null }])
@@ -72,6 +133,11 @@
   let averageResults = $state<Record<EndpointId, AverageResult>>(
     initialAverageResults
   );
+
+  let bestAvgClientTime = $state<number | null>(null);
+  let worstAvgClientTime = $state<number | null>(null);
+  let bestAvgServerTime = $state<number | null>(null);
+  let worstAvgServerTime = $state<number | null>(null);
 
   const progress = new Tween(0, { duration: 300, easing: cubicOut });
 
@@ -94,8 +160,9 @@
 
   function formatTime(timeMs: number | null): string {
     if (timeMs === null || timeMs === undefined) return "N/A";
-    if (timeMs < 10) return `${timeMs.toFixed(2)} ms`;
-    return `${timeMs.toFixed(1)} ms`;
+    if (timeMs < 1) return `<1 ms`;
+    if (timeMs < 10) return `${timeMs.toFixed(1)} ms`;
+    return `${Math.round(timeMs)} ms`;
   }
 
   async function measureFetch(url: string): Promise<BenchmarkResult> {
@@ -126,8 +193,9 @@
       }
 
       if (
-        typeof jsonResult?.timeMs !== "number" ||
-        typeof jsonResult?.binding !== "string"
+        !jsonResult.error &&
+        (typeof jsonResult?.timeMs !== "number" ||
+          typeof jsonResult?.binding !== "string")
       ) {
         console.warn(`Received unexpected structure from ${url}:`, jsonResult);
         throw new Error(
@@ -137,8 +205,8 @@
 
       return {
         clientTime: clientTime,
-        serverTime: jsonResult.timeMs,
-        binding: jsonResult.binding,
+        serverTime: jsonResult.timeMs ?? null,
+        binding: jsonResult.binding ?? "Unknown",
         error: jsonResult.error ?? null,
       };
     } catch (error: any) {
@@ -147,7 +215,7 @@
       return {
         clientTime: clientTimeSoFar,
         serverTime: null,
-        binding: "Error",
+        binding: "Fetch Error",
         error: error.message || "Unknown fetch error",
       };
     }
@@ -156,18 +224,28 @@
   async function runBenchmark() {
     isLoading = true;
     overallError = null;
+    benchmarkStatus = "Initializing benchmark...";
     benchmarkRuns = [];
     averageResults = { ...initialAverageResults };
+    bestAvgClientTime = null;
+    worstAvgClientTime = null;
+    bestAvgServerTime = null;
+    worstAvgServerTime = null;
     progress.set(0, { duration: 0 });
+
+    const totalQueries = RUN_COUNT * ENDPOINTS.length;
+    let queriesCompleted = 0;
 
     try {
       for (let i = 0; i < RUN_COUNT; i++) {
-        if (i > 0) {
-          await delay(DELAY_BETWEEN_RUNS_MS);
-        }
-
         const currentRunId = i + 1;
-        console.log(`Starting Run ${currentRunId}...`);
+        benchmarkStatus = `Starting Run ${currentRunId}/${RUN_COUNT}...`;
+
+        if (i > 0) {
+          benchmarkStatus = `Pausing for ${DELAY_BETWEEN_RUNS_MS / 1000}s before Run ${currentRunId}...`;
+          await delay(DELAY_BETWEEN_RUNS_MS);
+          benchmarkStatus = `Starting Run ${currentRunId}/${RUN_COUNT}...`;
+        }
 
         const shuffledEndpoints = shuffleArray([...ENDPOINTS]);
         console.log(
@@ -175,67 +253,70 @@
           shuffledEndpoints.map((e) => e.label)
         );
 
-        const currentRunResults: Record<string, BenchmarkResult> = {};
+        const initialRunResults: Record<string, BenchmarkResult> = {};
         ENDPOINTS.forEach((ep) => {
-          currentRunResults[ep.id] = {
+          initialRunResults[ep.id] = {
             clientTime: null,
             serverTime: null,
             binding: "Pending...",
             error: null,
           };
         });
-        benchmarkRuns = [
-          ...benchmarkRuns,
-          { runId: currentRunId, results: currentRunResults },
-        ];
+        if (!benchmarkRuns.find((run) => run.runId === currentRunId)) {
+          benchmarkRuns = [
+            ...benchmarkRuns,
+            { runId: currentRunId, results: initialRunResults },
+          ];
+        }
 
-        const fetchPromises = shuffledEndpoints.map((endpoint) =>
-          measureFetch(endpoint.url).then((result) => ({
-            id: endpoint.id,
-            result,
-          }))
-        );
+        const currentRunResults: Record<string, BenchmarkResult> = {};
 
-        const settledResults = await Promise.allSettled(fetchPromises);
+        for (let j = 0; j < shuffledEndpoints.length; j++) {
+          const endpoint = shuffledEndpoints[j];
+          const queryNumberInRun = j + 1;
 
-        const finalRunResults: Record<string, BenchmarkResult> = {};
-        settledResults.forEach((settledResult, index) => {
-          const endpointId = shuffledEndpoints[index].id;
-          if (settledResult.status === "fulfilled") {
-            const { id, result } = settledResult.value;
-            finalRunResults[id] = result;
-          } else {
-            console.error(
-              `Unexpected promise rejection for ${endpointId}:`,
-              settledResult.reason
-            );
-            finalRunResults[endpointId] = {
-              clientTime: null,
-              serverTime: null,
-              binding: "Fatal Error",
-              error:
-                settledResult.reason?.message ?? "Unknown settled rejection",
-            };
-          }
-        });
+          benchmarkStatus = `Run ${currentRunId}/${RUN_COUNT}: Query ${queryNumberInRun}/${shuffledEndpoints.length} - Fetching ${endpoint.label}...`;
+
+          const result = await measureFetch(endpoint.url);
+          currentRunResults[endpoint.id] = result;
+
+          benchmarkRuns = benchmarkRuns.map((run) =>
+            run.runId === currentRunId
+              ? { ...run, results: { ...run.results, [endpoint.id]: result } }
+              : run
+          );
+
+          queriesCompleted++;
+          await progress.set((queriesCompleted / totalQueries) * 100);
+        }
 
         benchmarkRuns = benchmarkRuns.map((run) =>
           run.runId === currentRunId
-            ? { ...run, results: finalRunResults }
+            ? { ...run, results: currentRunResults }
             : run
         );
 
-        await progress.set(((i + 1) / RUN_COUNT) * 100);
+        benchmarkStatus = `Run ${currentRunId}/${RUN_COUNT} completed.`;
       }
+
+      benchmarkStatus = "Benchmark finished. Calculating averages...";
+      calculateAverages();
+      benchmarkStatus = "Benchmark complete!";
+      await progress.set(100);
     } catch (error: any) {
       console.error("Benchmark sequence failed:", error);
       overallError =
         error.message || "An unexpected error stopped the benchmark.";
+      benchmarkStatus = `Error: ${overallError}`;
     } finally {
       isLoading = false;
-      if (!overallError) {
-        progress.set(100);
-        calculateAverages();
+      if (overallError) {
+        benchmarkStatus = `Benchmark failed: ${overallError}`;
+      } else if (benchmarkStatus === "Benchmark complete!") {
+        await delay(2000);
+        if (!isLoading) benchmarkStatus = null;
+      } else {
+        benchmarkStatus = null;
       }
     }
   }
@@ -243,10 +324,14 @@
   function calculateAverages() {
     if (benchmarkRuns.length < RUN_COUNT) return;
 
-    const relevantRuns = benchmarkRuns.filter((run) => run.runId >= 2);
+    const relevantRuns = benchmarkRuns.slice(1, RUN_COUNT);
     if (relevantRuns.length === 0) return;
 
     const newAverages = {} as Record<EndpointId, AverageResult>;
+    let minClient: number | null = null;
+    let maxClient: number | null = null;
+    let minServer: number | null = null;
+    let maxServer: number | null = null;
 
     for (const endpoint of ENDPOINTS) {
       let totalClientTime = 0;
@@ -255,7 +340,7 @@
       let validServerCount = 0;
 
       for (const run of relevantRuns) {
-        const result = run.results[endpoint.id];
+        const result = run.results?.[endpoint.id];
         if (result && result.error === null) {
           if (typeof result.clientTime === "number") {
             totalClientTime += result.clientTime;
@@ -268,26 +353,85 @@
         }
       }
 
+      const avgClient =
+        validClientCount > 0 ? totalClientTime / validClientCount : null;
+      const avgServer =
+        validServerCount > 0 ? totalServerTime / validServerCount : null;
+
       newAverages[endpoint.id] = {
-        avgClientTime:
-          validClientCount > 0 ? totalClientTime / validClientCount : null,
-        avgServerTime:
-          validServerCount > 0 ? totalServerTime / validServerCount : null,
+        avgClientTime: avgClient,
+        avgServerTime: avgServer,
       };
+
+      if (avgClient !== null) {
+        if (minClient === null || avgClient < minClient) minClient = avgClient;
+        if (maxClient === null || avgClient > maxClient) maxClient = avgClient;
+      }
+      if (avgServer !== null) {
+        if (minServer === null || avgServer < minServer) minServer = avgServer;
+        if (maxServer === null || avgServer > maxServer) maxServer = avgServer;
+      }
     }
     averageResults = newAverages;
-    console.log("Averages (Runs 2 & 3):", averageResults);
+    bestAvgClientTime = minClient;
+    worstAvgClientTime = maxClient;
+    bestAvgServerTime = minServer;
+    worstAvgServerTime = maxServer;
+
+    console.log(`Averages (Runs 2-${RUN_COUNT}):`, averageResults);
+    console.log(
+      `Best/Worst Client: ${bestAvgClientTime}/${worstAvgClientTime}, Server: ${bestAvgServerTime}/${worstAvgServerTime}`
+    );
+  }
+
+  function getResult(
+    runId: number,
+    endpointId: EndpointId
+  ): BenchmarkResult | undefined {
+    const run = benchmarkRuns.find((r) => r.runId === runId);
+    return run?.results?.[endpointId];
+  }
+
+  // Group endpoints by region and type for better display
+  const regions = ["us-east", "helsinki"];
+  const types = ["hyperdrive", "bun-rest"];
+  const cacheTypes = [true, false];
+
+  function getRegionLabel(region: string) {
+    return region === "us-east" ? "US East 🇺🇸" : "Helsinki 🇫🇮";
+  }
+
+  function getTypeLabel(type: string) {
+    return type === "hyperdrive" ? "Hyperdrive" : "Bun REST API";
+  }
+
+  function getCacheLabel(cached: boolean) {
+    return cached ? "Cached" : "Non-Cached";
+  }
+
+  function getEndpointByProperties(
+    region: string,
+    type: string,
+    cached: boolean
+  ) {
+    return ENDPOINTS.find(
+      (e) => e.region === region && e.type === type && e.cached === cached
+    );
+  }
+
+  function isWarmupRun(runId: number) {
+    return runId === 1;
   }
 </script>
 
-<div class="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8 font-sans">
+<div class="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6 font-sans">
   <header class="space-y-2">
     <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">
       Database Performance Benchmark
     </h1>
     <p class="text-gray-600">
       Comparing Cloudflare Hyperdrive vs. direct Bun REST API access (Helsinki
-      🇫🇮).
+      🇫🇮 & US East 🇺🇸).
     </p>
   </header>
 
@@ -295,50 +439,36 @@
     <h2 class="text-lg font-semibold text-gray-700 mb-2">How it Works</h2>
     <div class="text-sm text-gray-700 space-y-2">
       <p>
-        This tool runs {RUN_COUNT} test rounds against several API endpoints. Each
-        round queries all endpoints in a random order. The first round acts as a
-        warm-up and is <strong>not included</strong> in the final average results.
+        This tool runs {RUN_COUNT} test rounds against {ENDPOINTS.length} API endpoints.
+        Each round queries all endpoints sequentially in a random order. There is
+        a
+        <strong>{DELAY_BETWEEN_RUNS_MS / 1000}-second pause</strong> between
+        each round (after the first). The first round acts as a warm-up. Average
+        results use runs 2-{RUN_COUNT}.
       </p>
       <ul class="list-disc list-inside pl-4 space-y-1">
         <li>
-          <strong>Client Time:</strong> Measured in <em>your browser</em>. This
-          is the total time from sending a request to receiving the server's
-          initial response. It includes both
-          <strong class="text-red-600">network travel time (latency)</strong>
+          <strong>Client Time:</strong> Measured in <em>your browser</em>. Total
+          time from sending a request to receiving the full response headers and
+          body. Includes <strong class="text-red-600">network latency</strong>
           and <strong class="text-red-600">server processing time</strong>.
-          Network latency increases with distance (e.g., connecting to Helsinki
-          🇫🇮).
         </li>
         <li>
-          <strong>Server Time:</strong> Measured <em>on the server</em> and
-          reported by the API. For this benchmark, it specifically measures the
-          <strong class="text-blue-600">database query execution time</strong>.
-          It
-          <strong class="text-blue-600">does not include network latency</strong
-          >.
+          <strong>Server Time:</strong> Measured <em>on the server</em> (database
+          query time). Excludes network latency.
         </li>
       </ul>
-      <p><strong>Caching:</strong></p>
+      <p><strong>Caching Notes:</strong></p>
       <ul class="list-disc list-inside pl-4 space-y-1 text-sm text-gray-700">
+        <li>Browser caching is disabled for all requests.</li>
+        <li>"Bun REST Cached (30s)" endpoints allow CDN/server caching.</li>
         <li>
-          Your browser is told to re-check with the server for every request (<code
-            class="text-xs bg-gray-200 px-1 rounded">cache: "no-cache"</code
-          >), preventing local browser caching.
-        </li>
-        <li>
-          The "Bun REST Cached (30s)" endpoint uses a <code
-            class="text-xs bg-gray-200 px-1 rounded">Cache-Control</code
-          >
-          header allowing CDNs to cache its response for 30 seconds. This can
-          result in much faster <strong>Client Times</strong> for repeated
-          requests within that window, even with browser caching disabled, as
-          the response might come from a nearby CDN edge instead of the origin
-          server. The <strong>Server Time</strong> reported might still reflect the
-          original database query time.
+          "Hyperdrive Cached" uses Hyperdrive's connection pooling/caching.
         </li>
       </ul>
     </div>
   </section>
+
   <section class="flex flex-col sm:flex-row gap-4 items-center">
     <button
       onclick={runBenchmark}
@@ -374,18 +504,25 @@
   </section>
 
   {#if isLoading || progress.current > 0}
-    <div
-      class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 my-4 overflow-hidden"
-      role="progressbar"
-      aria-valuenow={progress.current}
-      aria-valuemin="0"
-      aria-valuemax="100"
-      aria-label="Benchmark Progress"
-    >
+    <div class="space-y-2">
       <div
-        class="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
-        style:width="{progress.current}%"
-      ></div>
+        class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 overflow-hidden"
+        role="progressbar"
+        aria-valuenow={progress.current}
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-label="Benchmark Progress"
+      >
+        <div
+          class="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+          style:width="{progress.current}%"
+        ></div>
+      </div>
+      {#if benchmarkStatus}
+        <p class="text-sm text-center text-gray-600 h-4">
+          {benchmarkStatus}
+        </p>
+      {/if}
     </div>
   {/if}
 
@@ -403,268 +540,370 @@
     <section class="mt-6 space-y-6">
       <h2 class="text-xl font-semibold text-gray-800">Results</h2>
 
-      <div class="block md:hidden space-y-5">
-        {#each benchmarkRuns as run (run.runId)}
-          <div
-            class="border border-gray-300 rounded-lg shadow-md overflow-hidden bg-white"
+      <!-- Responsive table that works on both mobile and desktop -->
+      <div class="overflow-x-auto shadow-md rounded-lg border border-gray-300">
+        <table class="w-full text-sm border-collapse benchmark-table">
+          <caption
+            class="text-base font-semibold p-2 text-left text-gray-700 bg-gray-50 border-b border-gray-300"
           >
-            <h3
-              class="text-lg font-semibold px-4 py-3 bg-gray-100 border-b border-gray-300"
-            >
-              Run {run.runId}
-            </h3>
-            <div class="divide-y divide-gray-200">
-              {#each ENDPOINTS as endpoint (endpoint.id)}
-                {@const result = run.results[endpoint.id]}
-                <div class="p-4">
-                  <h4
-                    class="font-medium text-gray-800 mb-2"
-                    title={endpoint.description}
-                  >
-                    {@html endpoint.label}
-                  </h4>
-                  {#if result.error}
-                    <div class="text-red-600">
-                      <p class="font-semibold">{result.binding || "Error"}</p>
-                      <p class="text-sm mt-1 break-words">{result.error}</p>
-                      {#if result.clientTime !== null}
-                        <p class="text-xs text-gray-500 mt-1">
-                          Failed after: {formatTime(result.clientTime)}
-                        </p>
-                      {/if}
-                    </div>
-                  {:else if result.binding === "Pending..."}
-                    <div class="text-gray-400 italic text-center py-2">
-                      Pending...
-                    </div>
-                  {:else}
-                    <dl class="space-y-1 text-sm">
-                      <div
-                        class="flex justify-between items-baseline gap-2"
-                        title="Total time (Network Latency + Server Processing) measured by browser."
-                      >
-                        <dt class="text-gray-600">Client:</dt>
-                        <dd class="text-gray-900 font-medium text-right">
-                          {formatTime(result.clientTime)}
-                        </dd>
-                      </div>
-                      <div
-                        class="flex justify-between items-baseline gap-2"
-                        title="Processing time reported by the server (excludes network latency)."
-                      >
-                        <dt class="text-gray-600">Server:</dt>
-                        <dd class="text-gray-900 font-medium text-right">
-                          {formatTime(result.serverTime)}
-                        </dd>
-                      </div>
-                    </dl>
-                  {/if}
-                </div>
-              {/each}
-            </div>
-          </div>
-        {/each}
+            Benchmark Results (Lower is better)
+          </caption>
 
-        {#if Object.keys(averageResults).length > 0 && !isLoading && benchmarkRuns.length >= RUN_COUNT}
-          <div
-            class="border border-blue-300 bg-blue-50 rounded-lg shadow-md overflow-hidden mt-6"
-          >
-            <h3
-              class="text-lg font-semibold px-4 py-3 bg-blue-100 border-b border-blue-300 text-blue-800"
-            >
-              Average (Runs 2 & 3)
-            </h3>
-            <div class="divide-y divide-blue-200">
-              {#each ENDPOINTS as endpoint (endpoint.id)}
-                {@const avg = averageResults[endpoint.id]}
-                <div class="p-4">
-                  <h4
-                    class="font-medium text-gray-800 mb-2"
-                    title={endpoint.description}
-                  >
-                    {@html endpoint.label}
-                  </h4>
-                  {#if avg}
-                    <dl class="space-y-1 text-sm">
-                      <div
-                        class="flex justify-between items-baseline gap-2"
-                        title="Average total time (Network Latency + Server Processing) measured by browser."
-                      >
-                        <dt class="text-gray-600">Avg Client:</dt>
-                        <dd class="text-blue-900 font-semibold text-right">
-                          {formatTime(avg.avgClientTime)}
-                        </dd>
-                      </div>
-                      <div
-                        class="flex justify-between items-baseline gap-2"
-                        title="Average processing time reported by the server (excludes network latency)."
-                      >
-                        <dt class="text-gray-600">Avg Server:</dt>
-                        <dd class="text-blue-900 font-semibold text-right">
-                          {formatTime(avg.avgServerTime)}
-                        </dd>
-                      </div>
-                    </dl>
-                  {:else}
-                    <p class="text-sm text-gray-500 italic">
-                      No data for average.
-                    </p>
-                  {/if}
-                </div>
-              {/each}
-            </div>
-          </div>
-        {/if}
-      </div>
-
-      <div
-        class="hidden md:block overflow-x-auto shadow-md rounded-lg border border-gray-300"
-      >
-        <table
-          class="min-w-full text-sm text-left text-gray-700 bg-white border-collapse"
-        >
-          <thead
-            class="text-xs text-gray-700 uppercase bg-gray-100 sticky top-0 z-10"
-          >
+          <thead class="bg-gray-100 text-xs">
             <tr>
               <th
-                scope="col"
-                class="px-4 py-3 border-b border-r border-gray-300 font-semibold text-center w-20 sticky left-0 bg-gray-100 z-20"
+                rowspan="2"
+                class="p-2 border-b-2 border-r border-gray-300 font-semibold text-left sticky left-0 bg-gray-100 z-10"
               >
-                Run #
+                Region
               </th>
-              {#each ENDPOINTS as endpoint (endpoint.id)}
+              <th
+                rowspan="2"
+                class="p-2 border-b-2 border-r border-gray-300 font-semibold text-left sticky left-12 bg-gray-100 z-10"
+              >
+                Type
+              </th>
+              <th
+                rowspan="2"
+                class="p-2 border-b-2 border-r border-gray-300 font-semibold text-left sticky left-24 bg-gray-100 z-10"
+              >
+                Caching
+              </th>
+
+              {#each { length: RUN_COUNT } as _, i}
+                {@const runId = i + 1}
                 <th
-                  scope="col"
-                  class="px-4 py-3 border-b border-r border-gray-300 font-semibold min-w-[200px] last:border-r-0"
-                  title={endpoint.description}
+                  colspan="2"
+                  class="p-1.5 border-b border-r border-gray-300 font-semibold text-center {isWarmupRun(
+                    runId
+                  )
+                    ? 'bg-amber-50'
+                    : ''}"
                 >
-                  {@html endpoint.label}
-                  <div class="font-normal normal-case text-gray-500 mt-1">
-                    <span
-                      class="inline-block cursor-help"
-                      title="Client Time: Total round-trip time measured by browser (includes network latency + server processing)."
-                      >Client</span
-                    >
-                    /
-                    <span
-                      class="inline-block cursor-help"
-                      title="Server Time: Processing time reported by server (excludes network latency)."
-                      >Server</span
-                    >
-                  </div>
+                  Run {runId}
+                  {#if isWarmupRun(runId)}
+                    <span class="text-amber-600 font-normal">(Warm-up)</span>
+                  {/if}
                 </th>
               {/each}
+
+              <th
+                colspan="2"
+                class="p-1.5 border-b border-gray-300 font-semibold text-center bg-blue-50"
+              >
+                Avg (Runs 2-{RUN_COUNT})
+              </th>
+            </tr>
+
+            <tr>
+              {#each { length: RUN_COUNT } as _, i}
+                {@const runId = i + 1}
+                <th
+                  class="px-2 py-1 border-b-2 border-r border-gray-300 font-semibold text-center {isWarmupRun(
+                    runId
+                  )
+                    ? 'bg-amber-50'
+                    : ''}">Client</th
+                >
+                <th
+                  class="px-2 py-1 border-b-2 border-r border-gray-300 font-semibold text-center {isWarmupRun(
+                    runId
+                  )
+                    ? 'bg-amber-50'
+                    : ''}">Server</th
+                >
+              {/each}
+
+              <th
+                class="px-2 py-1 border-b-2 border-r border-gray-300 font-semibold text-center bg-blue-50 text-blue-800"
+                >Client</th
+              >
+              <th
+                class="px-2 py-1 border-b-2 border-gray-300 font-semibold text-center bg-blue-50 text-blue-800"
+                >Server</th
+              >
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-200">
-            {#each benchmarkRuns as run (run.runId)}
-              <tr class="hover:bg-gray-50 align-top">
-                <td
-                  class="px-4 py-3 border-r border-gray-300 font-medium text-gray-900 whitespace-nowrap text-center sticky left-0 bg-white hover:bg-gray-50 z-10"
-                >
-                  {run.runId}
-                </td>
-                {#each ENDPOINTS as endpoint (endpoint.id)}
-                  {@const result = run.results[endpoint.id]}
-                  <td
-                    class="px-4 py-3 border-r border-gray-300 last:border-r-0"
-                  >
-                    {#if result.error}
-                      <div class="text-red-600">
-                        <p class="font-semibold">{result.binding || "Error"}</p>
-                        <p class="text-xs mt-1 break-words max-w-[200px]">
-                          {result.error}
-                        </p>
-                        {#if result.clientTime !== null}
-                          <p class="text-xs text-gray-500 mt-1">
-                            Failed after: {formatTime(result.clientTime)}
-                          </p>
-                        {/if}
-                      </div>
-                    {:else if result.binding === "Pending..."}
-                      <div class="text-gray-400 italic text-center py-4">
-                        Pending...
-                      </div>
-                    {:else}
-                      <dl>
-                        <div
-                          class="flex justify-between items-baseline gap-2"
-                          title="Client Time: Total round-trip time measured by browser (includes network latency + server processing)."
-                        >
-                          <dt class="font-medium text-gray-900">Client:</dt>
-                          <dd class="text-gray-700 text-right">
+
+          <tbody>
+            {#each regions as region}
+              {#each types as type}
+                {#each cacheTypes as cached}
+                  {@const endpoint = getEndpointByProperties(
+                    region,
+                    type,
+                    cached
+                  )}
+                  {#if endpoint}
+                    {@const avg = averageResults[endpoint.id]}
+                    <tr
+                      class="border-b border-gray-200 last:border-b-0 hover:bg-blue-50"
+                    >
+                      <!-- Region, Type, and Cache columns are now always visible -->
+                      <th
+                        class="p-2 font-medium text-gray-900 text-left sticky left-0 bg-white border-r border-gray-200 z-5"
+                      >
+                        {getRegionLabel(region)}
+                      </th>
+                      <th
+                        class="p-2 font-medium text-gray-900 text-left sticky left-12 bg-white border-r border-gray-200 z-5"
+                      >
+                        {getTypeLabel(type)}
+                      </th>
+                      <th
+                        class="p-2 font-medium text-gray-900 text-left sticky left-24 bg-white border-r border-gray-200 z-5"
+                      >
+                        {getCacheLabel(cached)}
+                      </th>
+
+                      {#each { length: RUN_COUNT } as _, i}
+                        {@const runId = i + 1}
+                        {@const result = getResult(runId, endpoint.id)}
+
+                        {#if result?.error}
+                          <td
+                            colspan="2"
+                            class="p-1.5 text-red-600 text-xs border-r {isWarmupRun(
+                              runId
+                            )
+                              ? 'bg-amber-50/30'
+                              : ''}"
+                          >
+                            <p class="font-semibold">
+                              {result.binding || "Error"}
+                            </p>
+                            <p
+                              class="text-[10px] mt-0.5 break-words max-w-[80px]"
+                            >
+                              {result.error}
+                            </p>
+                          </td>
+                        {:else if !result || result.binding === "Pending..."}
+                          <td
+                            class="p-1.5 text-center text-gray-400 italic text-xs {isWarmupRun(
+                              runId
+                            )
+                              ? 'bg-amber-50/30'
+                              : ''}">...</td
+                          >
+                          <td
+                            class="p-1.5 text-center text-gray-400 italic text-xs border-r {isWarmupRun(
+                              runId
+                            )
+                              ? 'bg-amber-50/30'
+                              : ''}">...</td
+                          >
+                        {:else}
+                          <td
+                            class="p-1.5 text-right whitespace-nowrap text-xs {isWarmupRun(
+                              runId
+                            )
+                              ? 'bg-amber-50/30'
+                              : ''}"
+                          >
                             {formatTime(result.clientTime)}
-                          </dd>
-                        </div>
-                        <div
-                          class="flex justify-between items-baseline gap-2 mt-1"
-                          title="Server Time: Processing time reported by server (excludes network latency)."
-                        >
-                          <dt class="font-medium text-gray-900">Server:</dt>
-                          <dd class="text-gray-700 text-right">
+                          </td>
+                          <td
+                            class="p-1.5 text-right whitespace-nowrap text-xs border-r {isWarmupRun(
+                              runId
+                            )
+                              ? 'bg-amber-50/30'
+                              : ''}"
+                          >
                             {formatTime(result.serverTime)}
-                          </dd>
-                        </div>
-                      </dl>
-                    {/if}
-                  </td>
+                          </td>
+                        {/if}
+                      {/each}
+
+                      <td
+                        class="p-1.5 text-right whitespace-nowrap text-xs font-medium bg-blue-50/50 border-r"
+                        class:best={avg?.avgClientTime !== null &&
+                          avg.avgClientTime === bestAvgClientTime}
+                        class:worst={avg?.avgClientTime !== null &&
+                          avg.avgClientTime === worstAvgClientTime}
+                      >
+                        {formatTime(avg?.avgClientTime)}
+                      </td>
+                      <td
+                        class="p-1.5 text-right whitespace-nowrap text-xs font-medium bg-blue-50/50"
+                        class:best={avg?.avgServerTime !== null &&
+                          avg.avgServerTime === bestAvgServerTime}
+                        class:worst={avg?.avgServerTime !== null &&
+                          avg.avgServerTime === worstAvgServerTime}
+                      >
+                        {formatTime(avg?.avgServerTime)}
+                      </td>
+                    </tr>
+                  {/if}
                 {/each}
-              </tr>
+              {/each}
             {/each}
           </tbody>
-          {#if Object.keys(averageResults).length > 0 && !isLoading && benchmarkRuns.length >= RUN_COUNT}
-            <tfoot
-              class="bg-blue-50 border-t-2 border-blue-300 sticky bottom-0"
-            >
-              <tr class="align-top">
-                <td
-                  class="px-4 py-3 border-r border-gray-300 font-semibold text-blue-800 whitespace-nowrap text-center sticky left-0 bg-blue-50 z-10"
-                >
-                  Avg<br /><span class="text-xs font-normal">(Runs 2&3)</span>
-                </td>
-                {#each ENDPOINTS as endpoint (endpoint.id)}
-                  {@const avg = averageResults[endpoint.id]}
-                  <td
-                    class="px-4 py-3 border-r border-gray-300 last:border-r-0"
-                  >
-                    {#if avg}
-                      <dl>
-                        <div
-                          class="flex justify-between items-baseline gap-2"
-                          title="Average Client Time (includes network latency)."
-                        >
-                          <dt class="font-semibold text-blue-800">
-                            Avg Client:
-                          </dt>
-                          <dd class="text-blue-900 font-semibold text-right">
-                            {formatTime(avg.avgClientTime)}
-                          </dd>
-                        </div>
-                        <div
-                          class="flex justify-between items-baseline gap-2 mt-1"
-                          title="Average Server Time (excludes network latency)."
-                        >
-                          <dt class="font-semibold text-blue-800">
-                            Avg Server:
-                          </dt>
-                          <dd class="text-blue-900 font-semibold text-right">
-                            {formatTime(avg.avgServerTime)}
-                          </dd>
-                        </div>
-                      </dl>
-                    {:else}
-                      <p class="text-sm text-gray-500 italic text-center py-2">
-                        No data
-                      </p>
-                    {/if}
-                  </td>
-                {/each}
-              </tr>
-            </tfoot>
-          {/if}
         </table>
       </div>
+
+      <!-- Comparison Summary -->
+      {#if Object.keys(averageResults).length > 0 && !isLoading && benchmarkRuns.length >= RUN_COUNT}
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
+            <h3 class="text-lg font-semibold mb-3 text-gray-800">
+              Hyperdrive vs. Bun REST Comparison
+            </h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="p-2 text-left font-medium">Region</th>
+                    <th class="p-2 text-center font-medium">Caching</th>
+                    <th class="p-2 text-right font-medium">Hyperdrive</th>
+                    <th class="p-2 text-right font-medium">Bun REST</th>
+                    <th class="p-2 text-right font-medium">Difference</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                  {#each regions as region}
+                    {#each cacheTypes as cached}
+                      {@const hyperdriveEndpoint = getEndpointByProperties(
+                        region,
+                        "hyperdrive",
+                        cached
+                      )}
+                      {@const bunEndpoint = getEndpointByProperties(
+                        region,
+                        "bun-rest",
+                        cached
+                      )}
+
+                      {#if hyperdriveEndpoint && bunEndpoint}
+                        {@const hyperdriveAvg =
+                          averageResults[hyperdriveEndpoint.id].avgClientTime}
+                        {@const bunAvg =
+                          averageResults[bunEndpoint.id].avgClientTime}
+                        {@const diff =
+                          hyperdriveAvg !== null && bunAvg !== null
+                            ? bunAvg - hyperdriveAvg
+                            : null}
+                        {@const percentage =
+                          hyperdriveAvg !== null &&
+                          bunAvg !== null &&
+                          hyperdriveAvg !== 0
+                            ? (diff! / hyperdriveAvg) * 100
+                            : null}
+
+                        <tr class="hover:bg-gray-50">
+                          <td class="p-2">{getRegionLabel(region)}</td>
+                          <td class="p-2 text-center"
+                            >{getCacheLabel(cached)}</td
+                          >
+                          <td class="p-2 text-right font-medium"
+                            >{formatTime(hyperdriveAvg)}</td
+                          >
+                          <td class="p-2 text-right font-medium"
+                            >{formatTime(bunAvg)}</td
+                          >
+                          <td
+                            class="p-2 text-right font-medium {diff !== null &&
+                            diff > 0
+                              ? 'text-green-600'
+                              : diff !== null && diff < 0
+                                ? 'text-red-600'
+                                : ''}"
+                          >
+                            {diff !== null
+                              ? `${diff > 0 ? "+" : ""}${Math.round(diff)} ms (${Math.abs(Math.round(percentage || 0))}%)`
+                              : "N/A"}
+                          </td>
+                        </tr>
+                      {/if}
+                    {/each}
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">
+              Positive difference means Hyperdrive is faster
+            </p>
+          </div>
+
+          <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
+            <h3 class="text-lg font-semibold mb-3 text-gray-800">
+              Cached vs. Non-Cached Comparison
+            </h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="p-2 text-left font-medium">Region</th>
+                    <th class="p-2 text-center font-medium">Type</th>
+                    <th class="p-2 text-right font-medium">Cached</th>
+                    <th class="p-2 text-right font-medium">Non-Cached</th>
+                    <th class="p-2 text-right font-medium">Improvement</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                  {#each regions as region}
+                    {#each types as type}
+                      {@const cachedEndpoint = getEndpointByProperties(
+                        region,
+                        type,
+                        true
+                      )}
+                      {@const nonCachedEndpoint = getEndpointByProperties(
+                        region,
+                        type,
+                        false
+                      )}
+
+                      {#if cachedEndpoint && nonCachedEndpoint}
+                        {@const cachedAvg =
+                          averageResults[cachedEndpoint.id].avgClientTime}
+                        {@const nonCachedAvg =
+                          averageResults[nonCachedEndpoint.id].avgClientTime}
+                        {@const diff =
+                          cachedAvg !== null && nonCachedAvg !== null
+                            ? nonCachedAvg - cachedAvg
+                            : null}
+                        {@const percentage =
+                          cachedAvg !== null &&
+                          nonCachedAvg !== null &&
+                          nonCachedAvg !== 0
+                            ? (diff! / nonCachedAvg) * 100
+                            : null}
+
+                        <tr class="hover:bg-gray-50">
+                          <td class="p-2">{getRegionLabel(region)}</td>
+                          <td class="p-2 text-center">{getTypeLabel(type)}</td>
+                          <td class="p-2 text-right font-medium"
+                            >{formatTime(cachedAvg)}</td
+                          >
+                          <td class="p-2 text-right font-medium"
+                            >{formatTime(nonCachedAvg)}</td
+                          >
+                          <td
+                            class="p-2 text-right font-medium {diff !== null &&
+                            diff > 0
+                              ? 'text-green-600'
+                              : diff !== null && diff < 0
+                                ? 'text-red-600'
+                                : ''}"
+                          >
+                            {diff !== null
+                              ? `${diff > 0 ? "+" : ""}${Math.round(diff)} ms (${Math.abs(Math.round(percentage || 0))}%)`
+                              : "N/A"}
+                          </td>
+                        </tr>
+                      {/if}
+                    {/each}
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">
+              Positive improvement means caching is faster
+            </p>
+          </div>
+        </div>
+      {/if}
     </section>
   {:else if !isLoading && !overallError}
     <p class="text-gray-500 mt-6 italic text-center">
@@ -674,57 +913,58 @@
 </div>
 
 <style>
-  dl dt {
-    flex-shrink: 0;
-  }
-  dl dd {
-    flex-grow: 1;
-    min-width: 50px;
-  }
-
-  thead th {
+  /* Static sticky headers */
+  .benchmark-table thead th {
     position: sticky;
     top: 0;
     z-index: 10;
   }
-  tbody td:first-child,
-  tfoot td:first-child,
-  thead th:first-child {
-    position: sticky;
-    left: 0;
+
+  /* Make sure sticky left columns work with hover */
+  .benchmark-table tbody tr:hover th.sticky {
+    background-color: #eff6ff !important;
+  }
+
+  /* Ensure sticky columns stay visible during scroll */
+  .benchmark-table tbody th.sticky {
     z-index: 5;
   }
-  thead th:first-child {
-    z-index: 15;
-  }
-  tfoot {
-    position: sticky;
-    bottom: 0;
-    z-index: 10;
-  }
-  tfoot td:first-child {
-    z-index: 15;
+
+  /* Result highlighting */
+  .benchmark-table td.best {
+    background-color: #dcfce7 !important;
+    font-weight: 600;
   }
 
-  tbody tr:hover td {
-    background-color: #f9fafb;
-  }
-  tbody tr:hover td:first-child {
-    background-color: #f9fafb;
+  .benchmark-table td.worst {
+    background-color: #fee2e2 !important;
   }
 
-  thead th,
-  tfoot td {
-    background-color: inherit;
-  }
-  thead th:first-child {
-    background-color: #f3f4f6;
-  }
-  tfoot td:first-child {
-    background-color: #eff6ff;
+  /* Hover effects */
+  .benchmark-table tbody tr:hover td.best {
+    background-color: #bbf7d0 !important;
   }
 
-  [title] {
-    cursor: help;
+  .benchmark-table tbody tr:hover td.worst {
+    background-color: #fecaca !important;
+  }
+
+  .benchmark-table tbody tr:hover th {
+    background-color: #eff6ff !important;
+  }
+
+  /* Mobile optimization - ensure no horizontal overflow */
+  @media (max-width: 640px) {
+    .benchmark-table th,
+    .benchmark-table td {
+      padding: 0.5rem 0.25rem;
+      font-size: 0.7rem;
+    }
+
+    /* Only show core columns on very small screens */
+    .benchmark-table th:nth-child(3),
+    .benchmark-table td:nth-child(3) {
+      display: none;
+    }
   }
 </style>

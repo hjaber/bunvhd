@@ -16,6 +16,8 @@ declare global {
     interface Env {
       "CACHED-DB-BUNVHD": Hyperdrive;
       "NO-CACHED-DB-BUNVHD": Hyperdrive;
+      "CACHED-DB-BUNVHD-US-EAST": Hyperdrive;
+      "NO-CACHED-DB-BUNVHD-US-EAST": Hyperdrive;
     }
   }
 }

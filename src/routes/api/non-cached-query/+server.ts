@@ -1,3 +1,4 @@
+// src/routes/api/non-cached-query/+server.ts
 import { json } from "@sveltejs/kit";
 import postgres from "postgres";
 import type { RequestHandler } from "./$types";
