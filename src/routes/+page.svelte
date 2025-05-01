@@ -26,7 +26,6 @@
     avgServerTime: number | null;
   }
 
-  // Reordered endpoints to better group them for comparison
   const ENDPOINTS = [
     // US East Region - Hyperdrive
     {
@@ -70,6 +69,50 @@
       cached: false,
       description:
         "Direct query to Bun REST API (US East 🇺🇸) with no server-side caching requested.",
+    },
+
+    // US West Region - Hyperdrive
+    {
+      id: "hyperdriveCachedUSWest",
+      url: "/api/cached-query-us-west",
+      label: "Hyperdrive US West 🇺🇸 Cached",
+      region: "us-west",
+      type: "hyperdrive",
+      cached: true,
+      description:
+        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Cached Connection Pool). Target DB in US West.",
+    },
+    {
+      id: "hyperdriveNonCachedUSWest",
+      url: "/api/non-cached-query-us-west",
+      label: "Hyperdrive US West 🇺🇸 Non-Cached",
+      region: "us-west",
+      type: "hyperdrive",
+      cached: false,
+      description:
+        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Non-Cached Connection Pool). Target DB in US West.",
+    },
+
+    // US West Region - Bun REST
+    {
+      id: "bunCachedUSWest",
+      url: "https://bunvhd-db-us-west.tripcafe.org/?cacheTtl=30",
+      label: "Bun REST US West 🇺🇸 Cached (30s)",
+      region: "us-west",
+      type: "bun-rest",
+      cached: true,
+      description:
+        "Direct query to Bun REST API (US West 🇺🇸) requesting server/CDN caching for 30 seconds via Cache-Control header.",
+    },
+    {
+      id: "bunNonCachedUSWest",
+      url: "https://bunvhd-db-us-west.tripcafe.org/",
+      label: "Bun REST US West 🇺🇸 Non-Cached",
+      region: "us-west",
+      type: "bun-rest",
+      cached: false,
+      description:
+        "Direct query to Bun REST API (US West 🇺🇸) with no server-side caching requested.",
     },
 
     // Helsinki Region - Hyperdrive
@@ -393,12 +436,14 @@
   }
 
   // Group endpoints by region and type for better display
-  const regions = ["us-east", "helsinki"];
+  const regions = ["us-east", "us-west", "helsinki"];
   const types = ["hyperdrive", "bun-rest"];
   const cacheTypes = [true, false];
 
   function getRegionLabel(region: string) {
-    return region === "us-east" ? "US East 🇺🇸" : "Helsinki 🇫🇮";
+    if (region === "us-east") return "US East 🇺🇸";
+    if (region === "us-west") return "US West 🇺🇸";
+    return "Helsinki 🇫🇮";
   }
 
   function getTypeLabel(type: string) {

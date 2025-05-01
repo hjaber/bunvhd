@@ -38,6 +38,16 @@
       "binding": "NO-CACHED-DB-BUNVHD-US-EAST",
       "id": "65d1002619e244df9bb017943bc6ac14",
       "localConnectionString": "postgres://restful:e2LdvBcLLA9fP.2KeWvkUpKzJFh79YcWogdcPwqX.yf7KDG2XdqKkGN8vgWnP8E@localhost:5433/grams14"
+    },
+    {
+      "binding": "CACHED-DB-BUNVHD-US-WEST",
+      "id": "ff5f8aadebf04bdbac792acd226c4cdb",
+      "localConnectionString": "postgres://restful:e2LdvBcLLA9fP.2KeWvkUpKzJFh79YcWogdcPwqX.yf7KDG2XdqKkGN8vgWnP8E@localhost:5433/grams14"
+    },
+    {
+      "binding": "NO-CACHED-DB-BUNVHD-US-WEST",
+      "id": "4e7fa4f54d704c6b86582b7a4aa29ba4",
+      "localConnectionString": "postgres://restful:e2LdvBcLLA9fP.2KeWvkUpKzJFh79YcWogdcPwqX.yf7KDG2XdqKkGN8vgWnP8E@localhost:5433/grams14"
     }
   ]
   /**

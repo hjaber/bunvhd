@@ -22,7 +22,6 @@ interface City {
   language_spoken: string | null;
 }
 
-// Updated bindings to EXACTLY match your actual environment variable names
 const ENDPOINT_CONFIG: Record<string, EndpointConfig> = {
   // Helsinki region endpoints
   "cached-query": {
@@ -50,6 +49,20 @@ const ENDPOINT_CONFIG: Record<string, EndpointConfig> = {
     displayName: "NON_CACHED_DB_US_EAST",
     cached: false,
     region: "us-east",
+  },
+
+  // US West region endpoints
+  "cached-query-us-west": {
+    bindingKey: "CACHED-DB-BUNVHD-US-WEST", // Exact binding name with hyphens
+    displayName: "CACHED_DB_US_WEST",
+    cached: true,
+    region: "us-west",
+  },
+  "non-cached-query-us-west": {
+    bindingKey: "NO-CACHED-DB-BUNVHD-US-WEST", // Note: Uses "NO-" not "NON-"
+    displayName: "NON_CACHED_DB_US_WEST",
+    cached: false,
+    region: "us-west",
   },
 };
 
