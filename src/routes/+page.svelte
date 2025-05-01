@@ -26,12 +26,11 @@
     avgServerTime: number | null;
   }
 
-  // Reordered and refactored endpoints to support CDN caching for all endpoints
   const ENDPOINTS = [
     // US East Region - Hyperdrive
     {
       id: "hyperdriveCachedUSEast",
-      url: "/api/cached-query-us-east?cdnCache=30",
+      url: "/api/cached-query-us-east?cdnCache=30&_r=useast_hd",
       label: "Hyperdrive US East 🇺🇸 CDN-Cached",
       region: "us-east",
       type: "hyperdrive",
@@ -41,7 +40,7 @@
     },
     {
       id: "hyperdriveNonCachedUSEast",
-      url: "/api/cached-query-us-east",
+      url: "/api/cached-query-us-east?_r=useast_hd_nc",
       label: "Hyperdrive US East 🇺🇸 Non-Cached",
       region: "us-east",
       type: "hyperdrive",
@@ -53,7 +52,7 @@
     // US East Region - Bun REST
     {
       id: "bunCachedUSEast",
-      url: "https://bunvhd-db-us-east.tripcafe.org/?cdnCache=30",
+      url: "https://bunvhd-db-us-east.tripcafe.org/?cdnCache=30&_r=useast_bun",
       label: "Bun REST US East 🇺🇸 CDN-Cached",
       region: "us-east",
       type: "bun-rest",
@@ -63,7 +62,7 @@
     },
     {
       id: "bunNonCachedUSEast",
-      url: "https://bunvhd-db-us-east.tripcafe.org/",
+      url: "https://bunvhd-db-us-east.tripcafe.org/?_r=useast_bun_nc",
       label: "Bun REST US East 🇺🇸 Non-Cached",
       region: "us-east",
       type: "bun-rest",
@@ -75,7 +74,7 @@
     // US West Region - Hyperdrive
     {
       id: "hyperdriveCachedUSWest",
-      url: "/api/cached-query-us-west?cdnCache=30",
+      url: "/api/cached-query-us-west?cdnCache=30&_r=uswest_hd",
       label: "Hyperdrive US West 🇺🇸 CDN-Cached",
       region: "us-west",
       type: "hyperdrive",
@@ -85,7 +84,7 @@
     },
     {
       id: "hyperdriveNonCachedUSWest",
-      url: "/api/cached-query-us-west",
+      url: "/api/cached-query-us-west?_r=uswest_hd_nc",
       label: "Hyperdrive US West 🇺🇸 Non-Cached",
       region: "us-west",
       type: "hyperdrive",
@@ -97,7 +96,7 @@
     // US West Region - Bun REST
     {
       id: "bunCachedUSWest",
-      url: "https://bunvhd-db-us-west.tripcafe.org/?cdnCache=30",
+      url: "https://bunvhd-db-us-west.tripcafe.org/?cdnCache=30&_r=uswest_bun",
       label: "Bun REST US West 🇺🇸 CDN-Cached",
       region: "us-west",
       type: "bun-rest",
@@ -107,7 +106,7 @@
     },
     {
       id: "bunNonCachedUSWest",
-      url: "https://bunvhd-db-us-west.tripcafe.org/",
+      url: "https://bunvhd-db-us-west.tripcafe.org/?_r=uswest_bun_nc",
       label: "Bun REST US West 🇺🇸 Non-Cached",
       region: "us-west",
       type: "bun-rest",
@@ -119,7 +118,7 @@
     // Helsinki Region - Hyperdrive
     {
       id: "hyperdriveCachedLocal",
-      url: "/api/cached-query?cdnCache=30",
+      url: "/api/cached-query?cdnCache=30&_r=hel_hd",
       label: "Hyperdrive Helsinki 🇫🇮 CDN-Cached",
       region: "helsinki",
       type: "hyperdrive",
@@ -129,7 +128,7 @@
     },
     {
       id: "hyperdriveNonCachedLocal",
-      url: "/api/cached-query",
+      url: "/api/cached-query?_r=hel_hd_nc",
       label: "Hyperdrive Helsinki 🇫🇮 Non-Cached",
       region: "helsinki",
       type: "hyperdrive",
@@ -141,7 +140,7 @@
     // Helsinki Region - Bun REST
     {
       id: "bunCachedHEL",
-      url: "https://bunvhd-db-eu-east.tripcafe.org/?cdnCache=30",
+      url: "https://bunvhd-db-eu-east.tripcafe.org/?cdnCache=30&_r=hel_bun",
       label: "Bun REST Helsinki 🇫🇮 CDN-Cached",
       region: "helsinki",
       type: "bun-rest",
@@ -151,7 +150,7 @@
     },
     {
       id: "bunNonCachedHEL",
-      url: "https://bunvhd-db-eu-east.tripcafe.org/",
+      url: "https://bunvhd-db-eu-east.tripcafe.org/?_r=hel_bun_nc",
       label: "Bun REST Helsinki 🇫🇮 Non-Cached",
       region: "helsinki",
       type: "bun-rest",

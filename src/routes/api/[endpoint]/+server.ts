@@ -186,40 +186,32 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
     error: errorMsg,
   };
 
-  // Add these lines after creating the response object in your backend API
-  // Create the response object
   const response = json(responseData);
 
-  // Modify the Cache-Control header section:
+  // Add CDN cache headers if requested, with improved cache key handling
   if (cacheTtl > 0) {
-    // Basic cache control with a unique cache key strategy
+    // Generate a cache key path component that uniquely identifies this endpoint
+    const cacheKeyPath = `/${config.region}/${endpoint}`;
+
+    // Basic cache control
     response.headers.set(
       "Cache-Control",
       `public, max-age=${cacheTtl}, s-maxage=${cacheTtl}`
     );
 
-    // Add custom cache-key headers
-    response.headers.set("X-Region", config.region);
-    response.headers.set("X-Endpoint-Type", endpoint);
+    // Add a single Vary header for basic differentiation
+    response.headers.set("Vary", "Origin");
 
-    // Use a more focused Vary header (don't vary on too many things)
-    response.headers.set("Vary", "Accept-Encoding, X-Region, X-Endpoint-Type");
+    // Add a cache key header
+    response.headers.set("X-Cache-Key", cacheKeyPath);
+
+    // Add Cloudflare-specific headers
+    response.headers.set("CDN-Cache-Control", `max-age=${cacheTtl}`);
+    response.headers.set("CF-Cache-Status", "DYNAMIC"); // This helps with debugging
   } else {
     // Explicitly prevent caching for non-cached responses
-    response.headers.set(
-      "Cache-Control",
-      "no-store, max-age=0, must-revalidate"
-    );
-    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Cache-Control", "no-store, max-age=0");
   }
-
-  // Add CF-Cache-Tag for easier cache management (if using Cloudflare Enterprise)
-  const cacheTag = `bunvhd-${config.region}-${
-    config.cached ? "cached" : "non-cached"
-  }`;
-  response.headers.set("CF-Cache-Tag", cacheTag);
-
-  return response;
 
   return response;
 };

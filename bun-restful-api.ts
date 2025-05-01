@@ -124,21 +124,47 @@ function createJsonResponse(
 }
 
 // --- Cache Header Generation Function ---
-// (Keep your existing generateCacheHeaders function as is)
+// Replace your generateCacheHeaders function with this improved version
 function generateCacheHeaders(
-  searchParams: URLSearchParams
+  searchParams: URLSearchParams,
+  hostname: string
 ): Record<string, string> {
-  const cacheTtlParam = searchParams.get("cacheTtl");
+  // Get cache parameter (support both cacheTtl and cdnCache for compatibility)
+  const cacheTtlParam =
+    searchParams.get("cacheTtl") || searchParams.get("cdnCache");
+  const headers: Record<string, string> = {};
+
+  // Extract region from hostname (us-east, us-west, or eu-east for Helsinki)
+  const regionMatch = hostname.match(/bunvhd-db-([\w-]+)\.tripcafe\.org/);
+  const region = regionMatch ? regionMatch[1] : "unknown";
 
   if (cacheTtlParam && /^\d+$/.test(cacheTtlParam)) {
     const ttlSeconds = parseInt(cacheTtlParam, 10);
-    if (ttlSeconds >= 0) {
-      console.log(`Applying Cache-Control: public, max-age=${ttlSeconds}`);
-      return { "Cache-Control": `public, max-age=${ttlSeconds}` };
+    if (ttlSeconds > 0) {
+      console.log(
+        `Applying CDN caching for ${ttlSeconds} seconds on region ${region}`
+      );
+
+      // Standard Cache-Control
+      headers[
+        "Cache-Control"
+      ] = `public, max-age=${ttlSeconds}, s-maxage=${ttlSeconds}`;
+
+      // Add Cloudflare-specific cache headers for consistency with SvelteKit
+      headers["CDN-Cache-Control"] = `max-age=${ttlSeconds}`;
+
+      // Add cache key information
+      headers["X-Cache-Key"] = `/${region}/rest-api`;
+
+      // Only vary by Origin to avoid cache fragmentation
+      headers["Vary"] = "Origin";
+
+      return headers;
     }
   }
-  console.log("Applying Cache-Control: no-store");
-  return { "Cache-Control": "no-store" };
+
+  console.log("Applying no-store cache directive");
+  return { "Cache-Control": "no-store, max-age=0" };
 }
 
 // --- Check for TLS Files ---
@@ -199,7 +225,7 @@ const server = serve({
       console.log(`Handling GET / with query: ${url.search}`);
 
       const searchParams = url.searchParams;
-      const cacheHeaders = generateCacheHeaders(searchParams);
+      const cacheHeaders = generateCacheHeaders(searchParams, url.hostname);
 
       // Prepare base response headers
       const responseHeaders: Record<string, string> = {
