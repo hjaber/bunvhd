@@ -186,22 +186,49 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
     error: errorMsg,
   };
 
+  // Add these lines after creating the response object in your backend API
   // Create the response object
   const response = json(responseData);
 
-  // Add CDN cache headers if requested
+  // Add CDN cache headers if requested, with improved cache key handling
   if (cacheTtl > 0) {
+    // Basic cache control
     response.headers.set(
       "Cache-Control",
       `public, max-age=${cacheTtl}, s-maxage=${cacheTtl}`
     );
-    // Add additional Cloudflare-specific cache headers
+
+    // Add Cloudflare-specific cache control
     response.headers.set("CDN-Cache-Control", `max-age=${cacheTtl}`);
     response.headers.set("Cloudflare-CDN-Cache-Control", `max-age=${cacheTtl}`);
+
+    // Add Vary headers to create different cache keys
+    response.headers.set(
+      "Vary",
+      "Origin, Accept-Encoding, X-Region, X-Cache-Type"
+    );
+
+    // Add custom headers that will force different cache keys
+    response.headers.set("X-Region", config.region);
+    response.headers.set("X-Cache-Type", "cdn-cached");
+    response.headers.set(
+      "X-Endpoint-Type",
+      config.cached ? "cached" : "non-cached"
+    );
+    response.headers.set("X-Query-Type", endpoint);
   } else {
     // Explicitly prevent caching for non-cached responses
     response.headers.set("Cache-Control", "no-store, max-age=0");
+    response.headers.set("X-Cache-Type", "non-cached");
   }
+
+  // Add CF-Cache-Tag for easier cache management (if using Cloudflare Enterprise)
+  const cacheTag = `bunvhd-${config.region}-${
+    config.cached ? "cached" : "non-cached"
+  }`;
+  response.headers.set("CF-Cache-Tag", cacheTag);
+
+  return response;
 
   return response;
 };
