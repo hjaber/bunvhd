@@ -30,7 +30,7 @@
     // US East Region - Hyperdrive
     {
       id: "hyperdriveCachedUSEast",
-      url: "/api/cached-query-us-east?cdnCache=30&_r=useast_hd",
+      url: "/api/cached-query-us-east?cdnCache=30",
       label: "Hyperdrive US East 🇺🇸 CDN-Cached",
       region: "us-east",
       type: "hyperdrive",
@@ -40,19 +40,19 @@
     },
     {
       id: "hyperdriveNonCachedUSEast",
-      url: "/api/cached-query-us-east?_r=useast_hd_nc",
+      url: "/api/non-cached-query-us-east?_nc=true",
       label: "Hyperdrive US East 🇺🇸 Non-Cached",
       region: "us-east",
       type: "hyperdrive",
       cached: false,
       description:
-        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Cached Connection Pool) without CDN caching. Target DB in US East.",
+        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Non-Cached Connection Pool) with dynamic path to bypass all caching. Target DB in US East.",
     },
 
     // US East Region - Bun REST
     {
       id: "bunCachedUSEast",
-      url: "https://bunvhd-db-us-east.tripcafe.org/?cdnCache=30&_r=useast_bun",
+      url: "https://bunvhd-db-us-east.tripcafe.org/?cdnCache=30",
       label: "Bun REST US East 🇺🇸 CDN-Cached",
       region: "us-east",
       type: "bun-rest",
@@ -62,7 +62,7 @@
     },
     {
       id: "bunNonCachedUSEast",
-      url: "https://bunvhd-db-us-east.tripcafe.org/?_r=useast_bun_nc",
+      url: "https://bunvhd-db-us-east.tripcafe.org/?_nc=true",
       label: "Bun REST US East 🇺🇸 Non-Cached",
       region: "us-east",
       type: "bun-rest",
@@ -74,7 +74,7 @@
     // US West Region - Hyperdrive
     {
       id: "hyperdriveCachedUSWest",
-      url: "/api/cached-query-us-west?cdnCache=30&_r=uswest_hd",
+      url: "/api/cached-query-us-west?cdnCache=30",
       label: "Hyperdrive US West 🇺🇸 CDN-Cached",
       region: "us-west",
       type: "hyperdrive",
@@ -84,19 +84,19 @@
     },
     {
       id: "hyperdriveNonCachedUSWest",
-      url: "/api/cached-query-us-west?_r=uswest_hd_nc",
+      url: "/api/non-cached-query-us-west?_nc=true",
       label: "Hyperdrive US West 🇺🇸 Non-Cached",
       region: "us-west",
       type: "hyperdrive",
       cached: false,
       description:
-        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Cached Connection Pool) without CDN caching. Target DB in US West.",
+        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Non-Cached Connection Pool) with dynamic path to bypass all caching. Target DB in US West.",
     },
 
     // US West Region - Bun REST
     {
       id: "bunCachedUSWest",
-      url: "https://bunvhd-db-us-west.tripcafe.org/?cdnCache=30&_r=uswest_bun",
+      url: "https://bunvhd-db-us-west.tripcafe.org/?cdnCache=30",
       label: "Bun REST US West 🇺🇸 CDN-Cached",
       region: "us-west",
       type: "bun-rest",
@@ -106,7 +106,7 @@
     },
     {
       id: "bunNonCachedUSWest",
-      url: "https://bunvhd-db-us-west.tripcafe.org/?_r=uswest_bun_nc",
+      url: "https://bunvhd-db-us-west.tripcafe.org/?_nc=true",
       label: "Bun REST US West 🇺🇸 Non-Cached",
       region: "us-west",
       type: "bun-rest",
@@ -118,7 +118,7 @@
     // Helsinki Region - Hyperdrive
     {
       id: "hyperdriveCachedLocal",
-      url: "/api/cached-query?cdnCache=30&_r=hel_hd",
+      url: "/api/cached-query?cdnCache=30",
       label: "Hyperdrive Helsinki 🇫🇮 CDN-Cached",
       region: "helsinki",
       type: "hyperdrive",
@@ -128,19 +128,19 @@
     },
     {
       id: "hyperdriveNonCachedLocal",
-      url: "/api/cached-query?_r=hel_hd_nc",
+      url: "/api/non-cached-query?_nc=true",
       label: "Hyperdrive Helsinki 🇫🇮 Non-Cached",
       region: "helsinki",
       type: "hyperdrive",
       cached: false,
       description:
-        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Cached Connection Pool) without CDN caching. Server is in Helsinki.",
+        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Non-Cached Connection Pool) with dynamic path to bypass all caching. Server is in Helsinki.",
     },
 
     // Helsinki Region - Bun REST
     {
       id: "bunCachedHEL",
-      url: "https://bunvhd-db-eu-east.tripcafe.org/?cdnCache=30&_r=hel_bun",
+      url: "https://bunvhd-db-eu-east.tripcafe.org/?cdnCache=30",
       label: "Bun REST Helsinki 🇫🇮 CDN-Cached",
       region: "helsinki",
       type: "bun-rest",
@@ -150,7 +150,7 @@
     },
     {
       id: "bunNonCachedHEL",
-      url: "https://bunvhd-db-eu-east.tripcafe.org/?_r=hel_bun_nc",
+      url: "https://bunvhd-db-eu-east.tripcafe.org/?_nc=true",
       label: "Bun REST Helsinki 🇫🇮 Non-Cached",
       region: "helsinki",
       type: "bun-rest",
@@ -208,16 +208,35 @@
     return `${Math.round(timeMs)} ms`;
   }
 
-  function addCacheBusting(url: string): string {
-    if (url.includes("_nc")) {
-      const separator = url.includes("?") ? "&" : "?";
-      return `${url}${separator}t=${Date.now()}`;
-    }
-    return url;
-  }
-
+  // Modify the measureFetch function to generate unique paths for non-cached endpoints
   async function measureFetch(url: string): Promise<BenchmarkResult> {
-    const fetchUrl = addCacheBusting(url);
+    // If this is a non-cached endpoint, generate a unique path instead of using query parameters
+    let fetchUrl = url;
+    if (url.includes("_nc")) {
+      // For API endpoints using the SvelteKit [endpoint] dynamic route
+      if (url.startsWith("/api/")) {
+        // Extract the base endpoint name
+        const urlObj = new URL(url, window.location.origin);
+        const pathParts = urlObj.pathname.split("/");
+        const baseEndpoint = pathParts[2]; // The [endpoint] part in /api/[endpoint]
+
+        // Create a new unique endpoint with timestamp
+        const timestamp = Date.now();
+        const uniqueEndpoint = `${baseEndpoint}-${timestamp}`;
+
+        // Replace the endpoint in the path
+        pathParts[2] = uniqueEndpoint;
+        urlObj.pathname = pathParts.join("/");
+
+        // Keep any existing query parameters except _r which is no longer needed
+        const params = new URLSearchParams(urlObj.search);
+        params.delete("_r"); // Remove the _r parameter since we're using path-based differentiation
+        urlObj.search = params.toString();
+
+        fetchUrl = urlObj.toString();
+      }
+    }
+
     const startTime = performance.now();
     try {
       const response = await fetch(fetchUrl, {
@@ -240,7 +259,7 @@
       try {
         jsonResult = await response.json();
       } catch (parseError: any) {
-        console.error(`Error parsing JSON from ${url}:`, parseError);
+        console.error(`Error parsing JSON from ${fetchUrl}:`, parseError);
         throw new Error(`Invalid JSON response received.`);
       }
 
@@ -249,7 +268,10 @@
         (typeof jsonResult?.timeMs !== "number" ||
           typeof jsonResult?.binding !== "string")
       ) {
-        console.warn(`Received unexpected structure from ${url}:`, jsonResult);
+        console.warn(
+          `Received unexpected structure from ${fetchUrl}:`,
+          jsonResult
+        );
         throw new Error(
           "Invalid response structure (missing timeMs or binding)."
         );
@@ -263,7 +285,7 @@
       };
     } catch (error: any) {
       const clientTimeSoFar = performance.now() - startTime;
-      console.error(`Error fetching ${url}:`, error);
+      console.error(`Error fetching ${fetchUrl}:`, error);
       return {
         clientTime: clientTimeSoFar,
         serverTime: null,
