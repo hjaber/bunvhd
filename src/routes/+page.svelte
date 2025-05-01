@@ -26,39 +26,40 @@
     avgServerTime: number | null;
   }
 
+  // Reordered and refactored endpoints to support CDN caching for all endpoints
   const ENDPOINTS = [
     // US East Region - Hyperdrive
     {
       id: "hyperdriveCachedUSEast",
-      url: "/api/cached-query-us-east",
-      label: "Hyperdrive US East 🇺🇸 Cached",
+      url: "/api/cached-query-us-east?cdnCache=30",
+      label: "Hyperdrive US East 🇺🇸 CDN-Cached",
       region: "us-east",
       type: "hyperdrive",
       cached: true,
       description:
-        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Cached Connection Pool). Target DB in US East.",
+        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Cached Connection Pool) with CDN caching. Target DB in US East.",
     },
     {
       id: "hyperdriveNonCachedUSEast",
-      url: "/api/non-cached-query-us-east",
+      url: "/api/cached-query-us-east",
       label: "Hyperdrive US East 🇺🇸 Non-Cached",
       region: "us-east",
       type: "hyperdrive",
       cached: false,
       description:
-        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Non-Cached Connection Pool). Target DB in US East.",
+        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Cached Connection Pool) without CDN caching. Target DB in US East.",
     },
 
     // US East Region - Bun REST
     {
       id: "bunCachedUSEast",
-      url: "https://bunvhd-db-us-east.tripcafe.org/?cacheTtl=30",
-      label: "Bun REST US East 🇺🇸 Cached (30s)",
+      url: "https://bunvhd-db-us-east.tripcafe.org/?cdnCache=30",
+      label: "Bun REST US East 🇺🇸 CDN-Cached",
       region: "us-east",
       type: "bun-rest",
       cached: true,
       description:
-        "Direct query to Bun REST API (US East 🇺🇸) requesting server/CDN caching for 30 seconds via Cache-Control header.",
+        "Direct query to Bun REST API (US East 🇺🇸) with CDN caching via Cache-Control headers.",
     },
     {
       id: "bunNonCachedUSEast",
@@ -68,41 +69,41 @@
       type: "bun-rest",
       cached: false,
       description:
-        "Direct query to Bun REST API (US East 🇺🇸) with no server-side caching requested.",
+        "Direct query to Bun REST API (US East 🇺🇸) with no CDN caching.",
     },
 
     // US West Region - Hyperdrive
     {
       id: "hyperdriveCachedUSWest",
-      url: "/api/cached-query-us-west",
-      label: "Hyperdrive US West 🇺🇸 Cached",
+      url: "/api/cached-query-us-west?cdnCache=30",
+      label: "Hyperdrive US West 🇺🇸 CDN-Cached",
       region: "us-west",
       type: "hyperdrive",
       cached: true,
       description:
-        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Cached Connection Pool). Target DB in US West.",
+        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Cached Connection Pool) with CDN caching. Target DB in US West.",
     },
     {
       id: "hyperdriveNonCachedUSWest",
-      url: "/api/non-cached-query-us-west",
+      url: "/api/cached-query-us-west",
       label: "Hyperdrive US West 🇺🇸 Non-Cached",
       region: "us-west",
       type: "hyperdrive",
       cached: false,
       description:
-        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Non-Cached Connection Pool). Target DB in US West.",
+        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Cached Connection Pool) without CDN caching. Target DB in US West.",
     },
 
     // US West Region - Bun REST
     {
       id: "bunCachedUSWest",
-      url: "https://bunvhd-db-us-west.tripcafe.org/?cacheTtl=30",
-      label: "Bun REST US West 🇺🇸 Cached (30s)",
+      url: "https://bunvhd-db-us-west.tripcafe.org/?cdnCache=30",
+      label: "Bun REST US West 🇺🇸 CDN-Cached",
       region: "us-west",
       type: "bun-rest",
       cached: true,
       description:
-        "Direct query to Bun REST API (US West 🇺🇸) requesting server/CDN caching for 30 seconds via Cache-Control header.",
+        "Direct query to Bun REST API (US West 🇺🇸) with CDN caching via Cache-Control headers.",
     },
     {
       id: "bunNonCachedUSWest",
@@ -112,41 +113,41 @@
       type: "bun-rest",
       cached: false,
       description:
-        "Direct query to Bun REST API (US West 🇺🇸) with no server-side caching requested.",
+        "Direct query to Bun REST API (US West 🇺🇸) with no CDN caching.",
     },
 
     // Helsinki Region - Hyperdrive
     {
       id: "hyperdriveCachedLocal",
-      url: "/api/cached-query",
-      label: "Hyperdrive Helsinki 🇫🇮 Cached",
+      url: "/api/cached-query?cdnCache=30",
+      label: "Hyperdrive Helsinki 🇫🇮 CDN-Cached",
       region: "helsinki",
       type: "hyperdrive",
       cached: true,
       description:
-        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Cached Connection Pool). Server is in Helsinki.",
+        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Cached Connection Pool) with CDN caching. Server is in Helsinki.",
     },
     {
       id: "hyperdriveNonCachedLocal",
-      url: "/api/non-cached-query",
+      url: "/api/cached-query",
       label: "Hyperdrive Helsinki 🇫🇮 Non-Cached",
       region: "helsinki",
       type: "hyperdrive",
       cached: false,
       description:
-        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Non-Cached Connection Pool). Server is in Helsinki.",
+        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Cached Connection Pool) without CDN caching. Server is in Helsinki.",
     },
 
     // Helsinki Region - Bun REST
     {
       id: "bunCachedHEL",
-      url: "https://bunvhd-db-eu-east.tripcafe.org/?cacheTtl=30",
-      label: "Bun REST Helsinki 🇫🇮 Cached (30s)",
+      url: "https://bunvhd-db-eu-east.tripcafe.org/?cdnCache=30",
+      label: "Bun REST Helsinki 🇫🇮 CDN-Cached",
       region: "helsinki",
       type: "bun-rest",
       cached: true,
       description:
-        "Direct query to Bun REST API (Helsinki 🇫🇮) requesting server/CDN caching for 30 seconds via Cache-Control header.",
+        "Direct query to Bun REST API (Helsinki 🇫🇮) with CDN caching via Cache-Control headers.",
     },
     {
       id: "bunNonCachedHEL",
@@ -156,7 +157,7 @@
       type: "bun-rest",
       cached: false,
       description:
-        "Direct query to Bun REST API (Helsinki 🇫🇮) with no server-side caching requested.",
+        "Direct query to Bun REST API (Helsinki 🇫🇮) with no CDN caching.",
     },
   ] as const;
 
@@ -451,7 +452,7 @@
   }
 
   function getCacheLabel(cached: boolean) {
-    return cached ? "Cached" : "Non-Cached";
+    return cached ? "CDN-Cached" : "Non-Cached";
   }
 
   function getEndpointByProperties(
@@ -506,9 +507,18 @@
       <p><strong>Caching Notes:</strong></p>
       <ul class="list-disc list-inside pl-4 space-y-1 text-sm text-gray-700">
         <li>Browser caching is disabled for all requests.</li>
-        <li>"Bun REST Cached (30s)" endpoints allow CDN/server caching.</li>
         <li>
-          "Hyperdrive Cached" uses Hyperdrive's connection pooling/caching.
+          "CDN-Cached" endpoints use Cloudflare CDN caching with <code
+            >Cache-Control</code
+          > headers (30s TTL).
+        </li>
+        <li>
+          "Hyperdrive Cached" endpoints still use Hyperdrive's connection
+          pooling internally.
+        </li>
+        <li>
+          This allows us to compare both connection-level caching and CDN-level
+          caching.
         </li>
       </ul>
     </div>

@@ -22,6 +22,7 @@ interface City {
   language_spoken: string | null;
 }
 
+// Updated bindings to EXACTLY match your actual environment variable names
 const ENDPOINT_CONFIG: Record<string, EndpointConfig> = {
   // Helsinki region endpoints
   "cached-query": {
@@ -71,8 +72,11 @@ interface EnvBindings {
   [key: string]: any; // This allows any string key with any value
 }
 
-export const GET: RequestHandler = async ({ params, platform }) => {
+export const GET: RequestHandler = async ({ params, platform, url }) => {
   const endpoint = params.endpoint;
+  // Check if CDN caching is requested via query parameter
+  const cdnCache = url.searchParams.get("cdnCache");
+  const cacheTtl = cdnCache ? parseInt(cdnCache, 10) || 30 : 0; // Default to 30 seconds if unspecified
 
   // Check if the requested endpoint exists in our configuration
   if (!endpoint || !(endpoint in ENDPOINT_CONFIG)) {
@@ -174,11 +178,30 @@ export const GET: RequestHandler = async ({ params, platform }) => {
 
   const duration = endTime - startTime;
 
-  // Return the benchmark results
-  return json({
+  // Create response with the benchmark results
+  const responseData = {
     data: results.length > 0 ? results : null,
     timeMs: duration,
     binding: config.displayName,
     error: errorMsg,
-  });
+  };
+
+  // Create the response object
+  const response = json(responseData);
+
+  // Add CDN cache headers if requested
+  if (cacheTtl > 0) {
+    response.headers.set(
+      "Cache-Control",
+      `public, max-age=${cacheTtl}, s-maxage=${cacheTtl}`
+    );
+    // Add additional Cloudflare-specific cache headers
+    response.headers.set("CDN-Cache-Control", `max-age=${cacheTtl}`);
+    response.headers.set("Cloudflare-CDN-Cache-Control", `max-age=${cacheTtl}`);
+  } else {
+    // Explicitly prevent caching for non-cached responses
+    response.headers.set("Cache-Control", "no-store, max-age=0");
+  }
+
+  return response;
 };
