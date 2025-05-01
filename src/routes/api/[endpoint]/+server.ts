@@ -78,6 +78,10 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
   const cdnCache = url.searchParams.get("cdnCache");
   const cacheTtl = cdnCache ? parseInt(cdnCache, 10) || 30 : 0; // Default to 30 seconds if unspecified
 
+  // Add a timestamp as a cache-busting parameter for non-cached requests
+  const timestamp = Date.now();
+  const isCacheBusting = url.searchParams.get("_r")?.includes("_nc");
+
   // Check if the requested endpoint exists in our configuration
   if (!endpoint || !(endpoint in ENDPOINT_CONFIG)) {
     throw svelteError(404, `Unknown endpoint: ${endpoint}`);
@@ -125,19 +129,38 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
     }
 
     // Create a new database connection for this request
-    // No connection pooling between requests (Workers limitation)
+    // For non-cached requests, add a unique comment to prevent query caching
+    const queryComment = isCacheBusting ? `/* nocache-${timestamp} */` : "";
+
+    // Connection options
     sql = postgres(connectionString, {
       max: 1, // Single connection
       idle_timeout: 5, // Short timeout
       connect_timeout: 10, // 10 second connection timeout
+      // For non-cached requests, set additional parameters to prevent connection pooling
+      ...(isCacheBusting
+        ? {
+            connection: {
+              application_name: `benchmark_nocache_${timestamp}`,
+            },
+          }
+        : {}),
     });
 
     startTime = performance.now();
 
     // Execute the query to get a random city
-    results = await sql<City[]>`
-      SELECT * FROM public.cities ORDER BY RANDOM() LIMIT 1;
-    `;
+    // For non-cached requests, add a random ORDER BY to prevent query caching
+    if (isCacheBusting) {
+      results = await sql<City[]>`
+        ${sql.unsafe(queryComment)}
+        SELECT * FROM public.cities ORDER BY RANDOM() LIMIT 1;
+      `;
+    } else {
+      results = await sql<City[]>`
+        SELECT * FROM public.cities ORDER BY RANDOM() LIMIT 1;
+      `;
+    }
 
     endTime = performance.now();
   } catch (e: any) {
@@ -184,12 +207,14 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
     timeMs: duration,
     binding: config.displayName,
     error: errorMsg,
+    timestamp: timestamp, // Add timestamp to response for debugging
+    cacheBusting: isCacheBusting, // Add cache busting indicator for debugging
   };
 
   const response = json(responseData);
 
   // Add CDN cache headers if requested, with improved cache key handling
-  if (cacheTtl > 0) {
+  if (cacheTtl > 0 && !isCacheBusting) {
     // Generate a cache key path component that uniquely identifies this endpoint
     const cacheKeyPath = `/${config.region}/${endpoint}`;
 
@@ -200,7 +225,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
     );
 
     // Add a single Vary header for basic differentiation
-    response.headers.set("Vary", "Origin");
+    response.headers.set("Vary", "Origin, X-Cache-Key");
 
     // Add a cache key header
     response.headers.set("X-Cache-Key", cacheKeyPath);
@@ -209,8 +234,18 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
     response.headers.set("CDN-Cache-Control", `max-age=${cacheTtl}`);
     response.headers.set("CF-Cache-Status", "DYNAMIC"); // This helps with debugging
   } else {
-    // Explicitly prevent caching for non-cached responses
-    response.headers.set("Cache-Control", "no-store, max-age=0");
+    // Strong no-cache headers for non-cached responses
+    response.headers.set(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+    );
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
+    response.headers.set("Surrogate-Control", "no-store");
+    // Mark the response with a custom header for debugging
+    response.headers.set("X-Cache-Status", "NOCACHE");
+    // Add timestamp to prevent caching
+    response.headers.set("X-Timestamp", timestamp.toString());
   }
 
   return response;

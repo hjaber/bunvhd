@@ -208,10 +208,19 @@
     return `${Math.round(timeMs)} ms`;
   }
 
+  function addCacheBusting(url: string): string {
+    if (url.includes("_nc")) {
+      const separator = url.includes("?") ? "&" : "?";
+      return `${url}${separator}t=${Date.now()}`;
+    }
+    return url;
+  }
+
   async function measureFetch(url: string): Promise<BenchmarkResult> {
+    const fetchUrl = addCacheBusting(url);
     const startTime = performance.now();
     try {
-      const response = await fetch(url, {
+      const response = await fetch(fetchUrl, {
         cache: "no-cache",
         headers: { Accept: "application/json" },
       });
