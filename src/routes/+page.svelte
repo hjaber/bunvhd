@@ -222,7 +222,8 @@
 
         // Create a new unique endpoint with timestamp
         const timestamp = Date.now();
-        const uniqueEndpoint = `${baseEndpoint}-${timestamp}`;
+        const randomSuffix = Math.floor(Math.random() * 1000);
+        const uniqueEndpoint = `${baseEndpoint}-${timestamp}-${randomSuffix}`;
 
         // Replace the endpoint in the path
         pathParts[2] = uniqueEndpoint;
