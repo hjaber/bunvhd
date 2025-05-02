@@ -15,19 +15,19 @@
     "cf-typegen": "wrangler types && mv worker-configuration.d.ts src/"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250426.0",
+    "@cloudflare/workers-types": "^4.20250430.0",
     "@sveltejs/adapter-auto": "^6.0.0",
-    "@sveltejs/adapter-cloudflare": "^7.0.1",
-    "@sveltejs/kit": "^2.20.7",
+    "@sveltejs/adapter-cloudflare": "^7.0.2",
+    "@sveltejs/kit": "^2.20.8",
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
-    "@tailwindcss/vite": "^4.1.4",
-    "@types/bun": "^1.2.10",
+    "@tailwindcss/vite": "^4.1.5",
+    "@types/bun": "^1.2.11",
     "svelte": "^5.28.2",
     "svelte-check": "^4.1.6",
-    "tailwindcss": "^4.1.4",
+    "tailwindcss": "^4.1.5",
     "typescript": "^5.8.3",
-    "vite": "^6.3.3",
-    "wrangler": "^4.13.2"
+    "vite": "^6.3.4",
+    "wrangler": "^4.14.1"
   },
   "dependencies": {
     "postgres": "^3.4.5"
