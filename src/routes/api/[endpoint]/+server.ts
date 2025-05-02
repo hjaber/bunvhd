@@ -133,10 +133,9 @@ const ENDPOINT_CONFIG: Record<string, EndpointConfig> = {
 const ENDPOINT_PATTERN =
   /^(cached-query|non-cached-query|cached-query-us-east|non-cached-query-us-east|cached-query-us-west|non-cached-query-us-west|bun-cached-hel|bun-non-cached-hel|bun-cached-us-east|bun-non-cached-us-east|bun-cached-us-west|bun-non-cached-us-west)(-\d+-\d+|-\d+)?$/;
 
-// Interface for environment bindings
+// Interface for environment bindings (removed Cache API)
 interface EnvBindings {
   [key: string]: any;
-  CACHE?: Cache; // Cloudflare Cache API, if available
 }
 
 // Interface for the response from Bun REST API
@@ -186,39 +185,6 @@ export const GET: RequestHandler = async ({
 
   // Type-safe access to environment variables
   const env = platform.env as EnvBindings;
-
-  // Cache key generation (for Cloudflare Cache API)
-  let cacheKey = null;
-
-  // Only try to use cache if:
-  // 1. This is a cached endpoint
-  // 2. This is not a dynamic path (which should bypass cache)
-  // 3. The CDN cache TTL is > 0
-  // 4. The Cache API is available
-  if (config.cached && !isDynamicPath && cacheTtl > 0 && env.CACHE) {
-    // Generate a cache key based on the endpoint and relevant query parameters
-    // Excluding irrelevant parameters to avoid cache fragmentation
-    const relevantParams = new URLSearchParams();
-    if (cdnCache) relevantParams.set("cdnCache", cdnCache);
-
-    cacheKey = new Request(
-      `https://cache-key/${baseEndpoint}?${relevantParams.toString()}`,
-      { method: "GET" }
-    );
-
-    // Try to get from cache first
-    try {
-      const cachedResponse = await env.CACHE.match(cacheKey);
-      if (cachedResponse) {
-        console.log(`Cache hit for ${baseEndpoint}`);
-        return cachedResponse;
-      }
-      console.log(`Cache miss for ${baseEndpoint}`);
-    } catch (e) {
-      console.error(`Cache API error for ${baseEndpoint}:`, e);
-      // Continue with the request even if cache fails
-    }
-  }
 
   // Now handle the request based on endpoint type
   let results: City[] | null = null;
@@ -419,11 +385,6 @@ export const GET: RequestHandler = async ({
 
     // Add Cloudflare-specific headers
     response.headers.set("CDN-Cache-Control", `max-age=${cacheTtl}`);
-
-    // Store in Cloudflare Cache API if available
-    if (cacheKey && env.CACHE && platform?.ctx?.waitUntil) {
-      platform.ctx.waitUntil(env.CACHE.put(cacheKey, response.clone()));
-    }
   } else {
     // Strong no-cache headers for non-cached responses
     response.headers.set(
