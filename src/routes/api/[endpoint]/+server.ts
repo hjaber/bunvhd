@@ -3,12 +3,14 @@ import { json, error as svelteError } from "@sveltejs/kit";
 import postgres from "postgres";
 import type { RequestHandler } from "./$types";
 
-// Define the configuration interface
+// Define the configuration interface with a new type field
 interface EndpointConfig {
   bindingKey: string;
   displayName: string;
   cached: boolean;
   region: string;
+  type: "hyperdrive" | "bun-rest-proxy"; // Added type to distinguish between direct DB and REST proxy
+  restUrl?: string; // URL for the REST API (only needed for bun-rest-proxy type)
 }
 
 // Define common city type
@@ -22,61 +24,136 @@ interface City {
   language_spoken: string | null;
 }
 
-// Updated bindings to EXACTLY match your actual environment variable names
+// Updated bindings to include both Hyperdrive and Bun REST API proxy endpoints
 const ENDPOINT_CONFIG: Record<string, EndpointConfig> = {
-  // Helsinki region endpoints
+  // Helsinki region - Hyperdrive
   "cached-query": {
-    bindingKey: "CACHED-DB-BUNVHD", // Exact binding name with hyphens
+    bindingKey: "CACHED-DB-BUNVHD",
     displayName: "CACHED_DB_HELSINKI",
     cached: true,
     region: "helsinki",
+    type: "hyperdrive",
   },
   "non-cached-query": {
-    bindingKey: "NO-CACHED-DB-BUNVHD", // Note: Uses "NO-" not "NON-"
+    bindingKey: "NO-CACHED-DB-BUNVHD",
     displayName: "NON_CACHED_DB_HELSINKI",
     cached: false,
     region: "helsinki",
+    type: "hyperdrive",
   },
 
-  // US East region endpoints
+  // Helsinki region - Bun REST API Proxy
+  "bun-cached-hel": {
+    bindingKey: "CACHED-DB-BUNVHD", // Still need a binding for auth context, even if not used directly
+    displayName: "BUN_REST_CACHED_HELSINKI",
+    cached: true,
+    region: "helsinki",
+    type: "bun-rest-proxy",
+    restUrl: "https://bunvhd-db-eu-east.tripcafe.org",
+  },
+  "bun-non-cached-hel": {
+    bindingKey: "NO-CACHED-DB-BUNVHD",
+    displayName: "BUN_REST_NON_CACHED_HELSINKI",
+    cached: false,
+    region: "helsinki",
+    type: "bun-rest-proxy",
+    restUrl: "https://bunvhd-db-eu-east.tripcafe.org",
+  },
+
+  // US East Region - Hyperdrive
   "cached-query-us-east": {
-    bindingKey: "CACHED-DB-BUNVHD-US-EAST", // Exact binding name with hyphens
+    bindingKey: "CACHED-DB-BUNVHD-US-EAST",
     displayName: "CACHED_DB_US_EAST",
     cached: true,
     region: "us-east",
+    type: "hyperdrive",
   },
   "non-cached-query-us-east": {
-    bindingKey: "NO-CACHED-DB-BUNVHD-US-EAST", // Note: Uses "NO-" not "NON-"
+    bindingKey: "NO-CACHED-DB-BUNVHD-US-EAST",
     displayName: "NON_CACHED_DB_US_EAST",
     cached: false,
     region: "us-east",
+    type: "hyperdrive",
   },
 
-  // US West region endpoints
+  // US East Region - Bun REST API Proxy
+  "bun-cached-us-east": {
+    bindingKey: "CACHED-DB-BUNVHD-US-EAST",
+    displayName: "BUN_REST_CACHED_US_EAST",
+    cached: true,
+    region: "us-east",
+    type: "bun-rest-proxy",
+    restUrl: "https://bunvhd-db-us-east.tripcafe.org",
+  },
+  "bun-non-cached-us-east": {
+    bindingKey: "NO-CACHED-DB-BUNVHD-US-EAST",
+    displayName: "BUN_REST_NON_CACHED_US_EAST",
+    cached: false,
+    region: "us-east",
+    type: "bun-rest-proxy",
+    restUrl: "https://bunvhd-db-us-east.tripcafe.org",
+  },
+
+  // US West Region - Hyperdrive
   "cached-query-us-west": {
-    bindingKey: "CACHED-DB-BUNVHD-US-WEST", // Exact binding name with hyphens
+    bindingKey: "CACHED-DB-BUNVHD-US-WEST",
     displayName: "CACHED_DB_US_WEST",
     cached: true,
     region: "us-west",
+    type: "hyperdrive",
   },
   "non-cached-query-us-west": {
-    bindingKey: "NO-CACHED-DB-BUNVHD-US-WEST", // Note: Uses "NO-" not "NON-"
+    bindingKey: "NO-CACHED-DB-BUNVHD-US-WEST",
     displayName: "NON_CACHED_DB_US_WEST",
     cached: false,
     region: "us-west",
+    type: "hyperdrive",
+  },
+
+  // US West Region - Bun REST API Proxy
+  "bun-cached-us-west": {
+    bindingKey: "CACHED-DB-BUNVHD-US-WEST",
+    displayName: "BUN_REST_CACHED_US_WEST",
+    cached: true,
+    region: "us-west",
+    type: "bun-rest-proxy",
+    restUrl: "https://bunvhd-db-us-west.tripcafe.org",
+  },
+  "bun-non-cached-us-west": {
+    bindingKey: "NO-CACHED-DB-BUNVHD-US-WEST",
+    displayName: "BUN_REST_NON_CACHED_US_WEST",
+    cached: false,
+    region: "us-west",
+    type: "bun-rest-proxy",
+    restUrl: "https://bunvhd-db-us-west.tripcafe.org",
   },
 };
 
 // Pattern to extract base endpoint from dynamic endpoint
-// Updated pattern to extract base endpoint from dynamic endpoint
 const ENDPOINT_PATTERN =
-  /^(cached-query|non-cached-query|cached-query-us-east|non-cached-query-us-east|cached-query-us-west|non-cached-query-us-west)(-\d+-\d+|-\d+)?$/;
-// Create a type for the environment bindings
+  /^(cached-query|non-cached-query|cached-query-us-east|non-cached-query-us-east|cached-query-us-west|non-cached-query-us-west|bun-cached-hel|bun-non-cached-hel|bun-cached-us-east|bun-non-cached-us-east|bun-cached-us-west|bun-non-cached-us-west)(-\d+-\d+|-\d+)?$/;
+
+// Interface for environment bindings
 interface EnvBindings {
-  [key: string]: any; // This allows any string key with any value
+  [key: string]: any;
+  CACHE?: Cache; // Cloudflare Cache API, if available
 }
 
-export const GET: RequestHandler = async ({ params, platform, url }) => {
+// Interface for the response from Bun REST API
+interface RestApiResponse {
+  data: City | null;
+  timeMs: number;
+  binding: string;
+  error: string | null;
+}
+
+export const GET: RequestHandler = async ({
+  fetch,
+  params,
+  platform,
+  url,
+  request,
+}) => {
   const dynamicEndpoint = params.endpoint;
 
   // Parse the dynamic endpoint to get the base endpoint
@@ -110,112 +187,218 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
   // Type-safe access to environment variables
   const env = platform.env as EnvBindings;
 
-  // Check if the specific binding exists
-  if (!env[config.bindingKey]) {
-    console.error(`API Error: ${config.bindingKey} binding not found`);
-    throw svelteError(
-      500,
-      `Configuration Error: ${config.displayName} binding not found.`
+  // Cache key generation (for Cloudflare Cache API)
+  let cacheKey = null;
+
+  // Only try to use cache if:
+  // 1. This is a cached endpoint
+  // 2. This is not a dynamic path (which should bypass cache)
+  // 3. The CDN cache TTL is > 0
+  // 4. The Cache API is available
+  if (config.cached && !isDynamicPath && cacheTtl > 0 && env.CACHE) {
+    // Generate a cache key based on the endpoint and relevant query parameters
+    // Excluding irrelevant parameters to avoid cache fragmentation
+    const relevantParams = new URLSearchParams();
+    if (cdnCache) relevantParams.set("cdnCache", cdnCache);
+
+    cacheKey = new Request(
+      `https://cache-key/${baseEndpoint}?${relevantParams.toString()}`,
+      { method: "GET" }
     );
+
+    // Try to get from cache first
+    try {
+      const cachedResponse = await env.CACHE.match(cacheKey);
+      if (cachedResponse) {
+        console.log(`Cache hit for ${baseEndpoint}`);
+        return cachedResponse;
+      }
+      console.log(`Cache miss for ${baseEndpoint}`);
+    } catch (e) {
+      console.error(`Cache API error for ${baseEndpoint}:`, e);
+      // Continue with the request even if cache fails
+    }
   }
 
-  const binding = env[config.bindingKey];
-  let startTime = 0;
-  let endTime = 0;
-  let results: City[] = [];
+  // Now handle the request based on endpoint type
+  let results: City[] | null = null;
   let errorMsg: string | null = null;
-  let sql: postgres.Sql | null = null;
+  let serverTimeMs: number = 0;
+  let binding = config.displayName;
 
-  try {
-    // Get the connection string
-    const connectionString =
-      typeof binding === "object" &&
-      binding !== null &&
-      "connectionString" in binding
-        ? (binding as { connectionString: string }).connectionString
-        : typeof binding === "string"
-        ? binding
-        : null;
-
-    if (!connectionString) {
-      throw new Error("Invalid or missing connection string in binding.");
+  if (config.type === "hyperdrive") {
+    // Original Hyperdrive flow
+    if (!env[config.bindingKey]) {
+      console.error(`API Error: ${config.bindingKey} binding not found`);
+      throw svelteError(
+        500,
+        `Configuration Error: ${config.displayName} binding not found.`
+      );
     }
 
-    // Create a new database connection for this request
-    sql = postgres(connectionString, {
-      max: 1, // Single connection
-      idle_timeout: 5, // Short timeout
-      connect_timeout: 10, // 10 second connection timeout
-      // For dynamic paths, set additional parameters to prevent connection pooling
-      ...(isDynamicPath
-        ? {
-            connection: {
-              application_name: `benchmark_${dynamicEndpoint}`,
-            },
-          }
-        : {}),
-    });
+    const dbBinding = env[config.bindingKey];
+    let sql: postgres.Sql | null = null;
 
-    startTime = performance.now();
+    try {
+      // Get the connection string
+      const connectionString =
+        typeof dbBinding === "object" &&
+        dbBinding !== null &&
+        "connectionString" in dbBinding
+          ? (dbBinding as { connectionString: string }).connectionString
+          : typeof dbBinding === "string"
+          ? dbBinding
+          : null;
 
-    // Execute the query to get a random city
-    if (isDynamicPath) {
-      // For dynamic paths, add a unique comment to force a new query plan
-      const uniqueComment = `/* ${dynamicEndpoint} */`;
-      results = await sql<City[]>`
-        ${sql.unsafe(uniqueComment)}
-        SELECT * FROM public.cities ORDER BY RANDOM() LIMIT 1;
-      `;
-    } else {
-      results = await sql<City[]>`
-        SELECT * FROM public.cities ORDER BY RANDOM() LIMIT 1;
-      `;
-    }
+      if (!connectionString) {
+        throw new Error("Invalid or missing connection string in binding.");
+      }
 
-    endTime = performance.now();
-  } catch (e: any) {
-    endTime = performance.now();
-    console.error(`Error querying ${config.displayName}:`, e);
-    errorMsg = e.message || "An unknown database error occurred";
-  } finally {
-    // Always properly close the connection
-    if (sql) {
-      const closePromise = sql
-        .end({ timeout: 5 })
-        .catch((err) =>
-          console.error(
-            `Error closing SQL connection for ${config.displayName}:`,
-            err
-          )
-        );
+      // Create a new database connection for this request
+      sql = postgres(connectionString, {
+        max: 1, // Single connection
+        idle_timeout: 5, // Short timeout
+        connect_timeout: 10, // 10 second connection timeout
+        // For dynamic paths, set additional parameters to prevent connection pooling
+        ...(isDynamicPath
+          ? {
+              connection: {
+                application_name: `benchmark_${dynamicEndpoint}`,
+              },
+            }
+          : {}),
+      });
 
-      // Use waitUntil to allow the connection to close after the response is sent
-      if (platform?.ctx?.waitUntil) {
-        platform.ctx.waitUntil(closePromise);
+      const startTime = performance.now();
+
+      // Execute the query to get a random city
+      if (isDynamicPath) {
+        // For dynamic paths, add a unique comment to force a new query plan
+        const uniqueComment = `/* ${dynamicEndpoint} */`;
+        results = await sql<City[]>`
+          ${sql.unsafe(uniqueComment)}
+          SELECT * FROM public.cities ORDER BY RANDOM() LIMIT 1;
+        `;
       } else {
-        // For environments without waitUntil, don't block the response
-        try {
-          // Wait briefly but don't block the response too long
-          await Promise.race([
-            closePromise,
-            new Promise((resolve) => setTimeout(resolve, 100)),
-          ]);
-        } catch (err) {
-          console.error(
-            `Timeout closing SQL connection for ${config.displayName}`
+        results = await sql<City[]>`
+          SELECT * FROM public.cities ORDER BY RANDOM() LIMIT 1;
+        `;
+      }
+
+      serverTimeMs = performance.now() - startTime;
+    } catch (e: any) {
+      console.error(`Error querying ${config.displayName}:`, e);
+      errorMsg = e.message || "An unknown database error occurred";
+    } finally {
+      // Always properly close the connection
+      if (sql) {
+        const closePromise = sql
+          .end({ timeout: 5 })
+          .catch((err) =>
+            console.error(
+              `Error closing SQL connection for ${config.displayName}:`,
+              err
+            )
           );
+
+        // Use waitUntil to allow the connection to close after the response is sent
+        if (platform?.ctx?.waitUntil) {
+          platform.ctx.waitUntil(closePromise);
+        } else {
+          // For environments without waitUntil, don't block the response
+          try {
+            // Wait briefly but don't block the response too long
+            await Promise.race([
+              closePromise,
+              new Promise((resolve) => setTimeout(resolve, 100)),
+            ]);
+          } catch (err) {
+            console.error(
+              `Timeout closing SQL connection for ${config.displayName}`
+            );
+          }
         }
       }
     }
-  }
+  } else if (config.type === "bun-rest-proxy") {
+    // Handle Bun REST API proxy
+    if (!config.restUrl) {
+      throw svelteError(
+        500,
+        `REST API URL not configured for ${config.displayName}`
+      );
+    }
 
-  const duration = endTime - startTime;
+    try {
+      // Build the REST API URL with appropriate caching parameters
+      const restParams = new URLSearchParams();
+      if (config.cached && cacheTtl > 0) {
+        restParams.set("cdnCache", cacheTtl.toString());
+      }
+      if (!config.cached || isDynamicPath) {
+        // For non-cached endpoints or dynamic paths, add a cache-busting parameter
+        restParams.set("_nc", "true");
+        if (isDynamicPath) {
+          // Add the dynamic identifier to ensure uniqueness
+          restParams.set("dynamicId", match[2].substring(1));
+        }
+      }
+
+      const restUrl = `${config.restUrl}/?${restParams.toString()}`;
+
+      // Time just the REST API call itself
+      const startTime = performance.now();
+      const response = await fetch(restUrl, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "SvelteKit-Benchmark-Proxy",
+          "X-Forwarded-For":
+            request.headers.get("x-forwarded-for") ||
+            request.headers.get("cf-connecting-ip") ||
+            "unknown",
+        },
+      });
+      const clientTimeMs = performance.now() - startTime;
+
+      if (!response.ok) {
+        throw new Error(
+          `REST API returned ${response.status}: ${await response.text()}`
+        );
+      }
+
+      const data: RestApiResponse = await response.json();
+
+      // Use the server-side timing from the REST API
+      serverTimeMs = data.timeMs;
+
+      // Get the result data
+      if (data.data) {
+        results = [data.data];
+      }
+
+      // If there was an error in the REST API, capture it
+      if (data.error) {
+        errorMsg = data.error;
+      }
+
+      console.log(
+        `REST proxy to ${restUrl} completed in ${clientTimeMs.toFixed(
+          2
+        )}ms (server: ${serverTimeMs.toFixed(2)}ms)`
+      );
+    } catch (e: any) {
+      console.error(`Error in REST proxy for ${config.displayName}:`, e);
+      errorMsg =
+        e.message || "An unknown error occurred while calling the REST API";
+    }
+  }
 
   // Create response with the benchmark results
   const responseData = {
-    data: results.length > 0 ? results : null,
-    timeMs: duration,
-    binding: config.displayName,
+    data: results && results.length > 0 ? results : null,
+    timeMs: serverTimeMs,
+    binding: binding,
     error: errorMsg,
     dynamicPath: isDynamicPath,
     originalEndpoint: baseEndpoint,
@@ -236,6 +419,11 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 
     // Add Cloudflare-specific headers
     response.headers.set("CDN-Cache-Control", `max-age=${cacheTtl}`);
+
+    // Store in Cloudflare Cache API if available
+    if (cacheKey && env.CACHE && platform?.ctx?.waitUntil) {
+      platform.ctx.waitUntil(env.CACHE.put(cacheKey, response.clone()));
+    }
   } else {
     // Strong no-cache headers for non-cached responses
     response.headers.set(

@@ -49,26 +49,26 @@
         "Query via SvelteKit backend API using Cloudflare Hyperdrive (Non-Cached Connection Pool) with dynamic path to bypass all caching. Target DB in US East.",
     },
 
-    // US East Region - Bun REST
+    // US East Region - Bun REST (via SvelteKit Proxy)
     {
       id: "bunCachedUSEast",
-      url: "https://bunvhd-db-us-east.tripcafe.org/?cdnCache=30",
+      url: "/api/bun-cached-us-east?cdnCache=30",
       label: "Bun REST US East 🇺🇸 CDN-Cached",
       region: "us-east",
       type: "bun-rest",
       cached: true,
       description:
-        "Direct query to Bun REST API (US East 🇺🇸) with CDN caching via Cache-Control headers.",
+        "Proxy request to Bun REST API (US East 🇺🇸) through SvelteKit backend with CDN caching.",
     },
     {
       id: "bunNonCachedUSEast",
-      url: "https://bunvhd-db-us-east.tripcafe.org/?_nc=true",
+      url: "/api/bun-non-cached-us-east?_nc=true",
       label: "Bun REST US East 🇺🇸 Non-Cached",
       region: "us-east",
       type: "bun-rest",
       cached: false,
       description:
-        "Direct query to Bun REST API (US East 🇺🇸) with no CDN caching.",
+        "Proxy request to Bun REST API (US East 🇺🇸) through SvelteKit backend with no caching.",
     },
 
     // US West Region - Hyperdrive
@@ -93,26 +93,26 @@
         "Query via SvelteKit backend API using Cloudflare Hyperdrive (Non-Cached Connection Pool) with dynamic path to bypass all caching. Target DB in US West.",
     },
 
-    // US West Region - Bun REST
+    // US West Region - Bun REST (via SvelteKit Proxy)
     {
       id: "bunCachedUSWest",
-      url: "https://bunvhd-db-us-west.tripcafe.org/?cdnCache=30",
+      url: "/api/bun-cached-us-west?cdnCache=30",
       label: "Bun REST US West 🇺🇸 CDN-Cached",
       region: "us-west",
       type: "bun-rest",
       cached: true,
       description:
-        "Direct query to Bun REST API (US West 🇺🇸) with CDN caching via Cache-Control headers.",
+        "Proxy request to Bun REST API (US West 🇺🇸) through SvelteKit backend with CDN caching.",
     },
     {
       id: "bunNonCachedUSWest",
-      url: "https://bunvhd-db-us-west.tripcafe.org/?_nc=true",
+      url: "/api/bun-non-cached-us-west?_nc=true",
       label: "Bun REST US West 🇺🇸 Non-Cached",
       region: "us-west",
       type: "bun-rest",
       cached: false,
       description:
-        "Direct query to Bun REST API (US West 🇺🇸) with no CDN caching.",
+        "Proxy request to Bun REST API (US West 🇺🇸) through SvelteKit backend with no caching.",
     },
 
     // Helsinki Region - Hyperdrive
@@ -137,26 +137,26 @@
         "Query via SvelteKit backend API using Cloudflare Hyperdrive (Non-Cached Connection Pool) with dynamic path to bypass all caching. Server is in Helsinki.",
     },
 
-    // Helsinki Region - Bun REST
+    // Helsinki Region - Bun REST (via SvelteKit Proxy)
     {
       id: "bunCachedHEL",
-      url: "https://bunvhd-db-eu-east.tripcafe.org/?cdnCache=30",
+      url: "/api/bun-cached-hel?cdnCache=30",
       label: "Bun REST Helsinki 🇫🇮 CDN-Cached",
       region: "helsinki",
       type: "bun-rest",
       cached: true,
       description:
-        "Direct query to Bun REST API (Helsinki 🇫🇮) with CDN caching via Cache-Control headers.",
+        "Proxy request to Bun REST API (Helsinki 🇫🇮) through SvelteKit backend with CDN caching.",
     },
     {
       id: "bunNonCachedHEL",
-      url: "https://bunvhd-db-eu-east.tripcafe.org/?_nc=true",
+      url: "/api/bun-non-cached-hel?_nc=true",
       label: "Bun REST Helsinki 🇫🇮 Non-Cached",
       region: "helsinki",
       type: "bun-rest",
       cached: false,
       description:
-        "Direct query to Bun REST API (Helsinki 🇫🇮) with no CDN caching.",
+        "Proxy request to Bun REST API (Helsinki 🇫🇮) through SvelteKit backend with no caching.",
     },
   ] as const;
 
