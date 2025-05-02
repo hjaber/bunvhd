@@ -68,9 +68,9 @@ const ENDPOINT_CONFIG: Record<string, EndpointConfig> = {
 };
 
 // Pattern to extract base endpoint from dynamic endpoint
+// Updated pattern to extract base endpoint from dynamic endpoint
 const ENDPOINT_PATTERN =
-  /^(cached-query|non-cached-query|cached-query-us-east|non-cached-query-us-east|cached-query-us-west|non-cached-query-us-west)(-\d+)?$/;
-
+  /^(cached-query|non-cached-query|cached-query-us-east|non-cached-query-us-east|cached-query-us-west|non-cached-query-us-west)(-\d+-\d+|-\d+)?$/;
 // Create a type for the environment bindings
 interface EnvBindings {
   [key: string]: any; // This allows any string key with any value
