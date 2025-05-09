@@ -12,7 +12,7 @@
     "directory": ".svelte-kit/cloudflare"
   },
   "placement": {
-    "mode": "off"
+    "mode": "smart"
   },
   "observability": {
     "enabled": true
