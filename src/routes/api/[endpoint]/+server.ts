@@ -154,6 +154,7 @@ export const GET: RequestHandler = async ({
   request,
 }) => {
   const dynamicEndpoint = params.endpoint;
+  const colo = request.cf?.colo || "UNKNOWN_COLO";
 
   // Parse the dynamic endpoint to get the base endpoint
   const match = dynamicEndpoint.match(ENDPOINT_PATTERN);
@@ -368,6 +369,7 @@ export const GET: RequestHandler = async ({
     error: errorMsg,
     dynamicPath: isDynamicPath,
     originalEndpoint: baseEndpoint,
+    colo: colo,
   };
 
   const response = json(responseData);

@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev": "bun --bun vite dev",
+    "dev": "bun --bun vite dev --open",
     "build": "bun --bun vite build",
     "preview": "bun run build && wrangler dev",
     "prepare": "bun --bun svelte-kit sync || echo ''",

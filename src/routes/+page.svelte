@@ -7,6 +7,7 @@
     timeMs: number;
     binding: string;
     error?: string | null;
+    colo?: string;
   }
 
   interface BenchmarkResult {
@@ -14,6 +15,7 @@
     serverTime: number | null;
     binding: string | null;
     error: string | null;
+    colo?: string | null;
   }
 
   interface RunResult {
@@ -35,8 +37,7 @@
       region: "us-east",
       type: "hyperdrive",
       cached: true,
-      description:
-        "SvelteKit backend (Cloudflare Worker) queries DB via Hyperdrive. Worker's response is CDN-cached. Target DB in US East.",
+      description: "Worker: Hyperdrive query. CDN cached. DB: US East.",
     },
     {
       id: "hyperdriveNonCachedUSEast",
@@ -46,7 +47,7 @@
       type: "hyperdrive",
       cached: false,
       description:
-        "SvelteKit backend (Cloudflare Worker) queries DB via Hyperdrive. Dynamic URL bypasses CDN & aims for fresh DB data. Hyperdrive connection pooling active. Target DB in US East.",
+        "Worker: Hyperdrive query. Dynamic URL (no CDN), fresh data. Hyperdrive pooling. DB: US East.",
     },
 
     // US East Region - Bun REST (via SvelteKit Proxy)
@@ -58,7 +59,7 @@
       type: "bun-rest",
       cached: true,
       description:
-        "SvelteKit backend (Cloudflare Worker) proxies to Bun REST API. Worker's response is CDN-cached. Bun API & DB in US East.",
+        "Worker: proxies Bun API. CDN cached. Bun API & DB: US East.",
     },
     {
       id: "bunNonCachedUSEast",
@@ -68,7 +69,7 @@
       type: "bun-rest",
       cached: false,
       description:
-        "SvelteKit backend (Cloudflare Worker) proxies to Bun REST API. Worker's response not CDN-cached; signals Bun API for fresh data. Bun API & DB in US East.",
+        "Worker: proxies Bun API. Non-CDN cached, fresh data. Bun API & DB: US East.",
     },
 
     // US West Region - Hyperdrive
@@ -79,8 +80,7 @@
       region: "us-west",
       type: "hyperdrive",
       cached: true,
-      description:
-        "SvelteKit backend (Cloudflare Worker) queries DB via Hyperdrive. Worker's response is CDN-cached. Target DB in US West.",
+      description: "Worker: Hyperdrive query. CDN cached. DB: US West.",
     },
     {
       id: "hyperdriveNonCachedUSWest",
@@ -90,7 +90,7 @@
       type: "hyperdrive",
       cached: false,
       description:
-        "SvelteKit backend (Cloudflare Worker) queries DB via Hyperdrive. Dynamic URL bypasses CDN & aims for fresh DB data. Hyperdrive connection pooling active. Target DB in US West.",
+        "Worker: Hyperdrive query. Dynamic URL (no CDN), fresh data. Hyperdrive pooling. DB: US West.",
     },
 
     // US West Region - Bun REST (via SvelteKit Proxy)
@@ -102,7 +102,7 @@
       type: "bun-rest",
       cached: true,
       description:
-        "SvelteKit backend (Cloudflare Worker) proxies to Bun REST API. Worker's response is CDN-cached. Bun API & DB in US West.",
+        "Worker: proxies Bun API. CDN cached. Bun API & DB: US West.",
     },
     {
       id: "bunNonCachedUSWest",
@@ -112,29 +112,28 @@
       type: "bun-rest",
       cached: false,
       description:
-        "SvelteKit backend (Cloudflare Worker) proxies to Bun REST API. Worker's response not CDN-cached; signals Bun API for fresh data. Bun API & DB in US West.",
+        "Worker: proxies Bun API. Non-CDN cached, fresh data. Bun API & DB: US West.",
     },
 
     // Helsinki Region - Hyperdrive
     {
-      id: "hyperdriveCachedLocal", // Consider renaming ID to hyperdriveCachedHelsinki for clarity
-      url: "/api/cached-query?cdnCache=30", // This path is generic, ensure your API router distinguishes Helsinki if needed, or make specific e.g. /api/cached-query-hel
+      id: "hyperdriveCachedLocal",
+      url: "/api/cached-query?cdnCache=30",
       label: "Hyperdrive Helsinki 🇫🇮 CDN-Cached",
       region: "helsinki",
       type: "hyperdrive",
       cached: true,
-      description:
-        "SvelteKit backend (Cloudflare Worker) queries DB via Hyperdrive. Worker's response is CDN-cached. Target DB in Helsinki.",
+      description: "Worker: Hyperdrive query. CDN cached. DB: Helsinki.",
     },
     {
-      id: "hyperdriveNonCachedLocal", // Consider renaming ID to hyperdriveNonCachedHelsinki
-      url: "/api/non-cached-query?_nc=true", // This path is generic, ensure your API router distinguishes Helsinki, or make specific e.g. /api/non-cached-query-hel
+      id: "hyperdriveNonCachedLocal",
+      url: "/api/non-cached-query?_nc=true",
       label: "Hyperdrive Helsinki 🇫🇮 Non-Cached",
       region: "helsinki",
       type: "hyperdrive",
       cached: false,
       description:
-        "SvelteKit backend (Cloudflare Worker) queries DB via Hyperdrive. Dynamic URL bypasses CDN & aims for fresh DB data. Hyperdrive connection pooling active. Target DB in Helsinki.",
+        "Worker: Hyperdrive query. Dynamic URL (no CDN), fresh data. Hyperdrive pooling. DB: Helsinki.",
     },
 
     // Helsinki Region - Bun REST (via SvelteKit Proxy)
@@ -146,7 +145,7 @@
       type: "bun-rest",
       cached: true,
       description:
-        "SvelteKit backend (Cloudflare Worker) proxies to Bun REST API. Worker's response is CDN-cached. Bun API & DB in Helsinki.",
+        "Worker: proxies Bun API. CDN cached. Bun API & DB: Helsinki.",
     },
     {
       id: "bunNonCachedHEL",
@@ -156,7 +155,7 @@
       type: "bun-rest",
       cached: false,
       description:
-        "SvelteKit backend (Cloudflare Worker) proxies to Bun REST API. Worker's response not CDN-cached; signals Bun API for fresh data. Bun API & DB in Helsinki.",
+        "Worker: proxies Bun API. Non-CDN cached, fresh data. Bun API & DB: Helsinki.",
     },
   ] as const;
 
@@ -208,32 +207,21 @@
     return `${Math.round(timeMs)} ms`;
   }
 
-  // Modify the measureFetch function to generate unique paths for non-cached endpoints
   async function measureFetch(url: string): Promise<BenchmarkResult> {
-    // If this is a non-cached endpoint, generate a unique path instead of using query parameters
     let fetchUrl = url;
     if (url.includes("_nc")) {
-      // For API endpoints using the SvelteKit [endpoint] dynamic route
       if (url.startsWith("/api/")) {
-        // Extract the base endpoint name
         const urlObj = new URL(url, window.location.origin);
         const pathParts = urlObj.pathname.split("/");
-        const baseEndpoint = pathParts[2]; // The [endpoint] part in /api/[endpoint]
-
-        // Create a new unique endpoint with timestamp
+        const baseEndpoint = pathParts[2];
         const timestamp = Date.now();
         const randomSuffix = Math.floor(Math.random() * 1000);
         const uniqueEndpoint = `${baseEndpoint}-${timestamp}-${randomSuffix}`;
-
-        // Replace the endpoint in the path
         pathParts[2] = uniqueEndpoint;
         urlObj.pathname = pathParts.join("/");
-
-        // Keep any existing query parameters except _r which is no longer needed
         const params = new URLSearchParams(urlObj.search);
-        params.delete("_r"); // Remove the _r parameter since we're using path-based differentiation
+        params.delete("_r");
         urlObj.search = params.toString();
-
         fetchUrl = urlObj.toString();
       }
     }
@@ -279,19 +267,23 @@
       }
 
       return {
+        // <<< MODIFIED HERE
         clientTime: clientTime,
         serverTime: jsonResult.timeMs ?? null,
         binding: jsonResult.binding ?? "Unknown",
         error: jsonResult.error ?? null,
+        colo: jsonResult.colo ?? null, // Ensure colo is passed
       };
     } catch (error: any) {
       const clientTimeSoFar = performance.now() - startTime;
       console.error(`Error fetching ${fetchUrl}:`, error);
       return {
+        // <<< MODIFIED HERE
         clientTime: clientTimeSoFar,
         serverTime: null,
         binding: "Fetch Error",
         error: error.message || "Unknown fetch error",
+        colo: "Error", // Or null if you prefer
       };
     }
   }
@@ -331,10 +323,12 @@
         const initialRunResults: Record<string, BenchmarkResult> = {};
         ENDPOINTS.forEach((ep) => {
           initialRunResults[ep.id] = {
+            // <<< MODIFIED HERE
             clientTime: null,
             serverTime: null,
             binding: "Pending...",
             error: null,
+            colo: null, // Initialize colo
           };
         });
         if (!benchmarkRuns.find((run) => run.runId === currentRunId)) {
@@ -501,648 +495,238 @@
   }
 </script>
 
-<div class="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6 font-sans">
-  <header class="space-y-2">
-    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">
-      Database Performance Benchmark
-    </h1>
-    <p class="text-gray-600">
-      Comparing database query performance using Cloudflare Hyperdrive versus a
-      proxied Bun.js REST API. Tests are conducted against databases and
-      application servers in Helsinki 🇫🇮, US East 🇺🇸, and US West 🇺🇸. All
-      requests from your browser are handled by a SvelteKit backend API deployed
-      on Cloudflare Workers.
-    </p>
-  </header>
+{#if benchmarkRuns.length > 0}
+  <section class="mt-6 space-y-6">
+    <h2 class="text-xl font-semibold text-gray-800">Results</h2>
 
-  <section class="p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-3">
-    <h2 class="text-lg font-semibold text-gray-700 mb-2">How it Works</h2>
-    <div class="text-sm text-gray-700 space-y-2">
-      <p>
-        This benchmark evaluates two database access patterns, with all requests
-        from your browser being routed through a SvelteKit backend application
-        running on Cloudflare Workers:
-      </p>
-      <ul class="list-disc list-inside pl-4 space-y-1">
-        <li>
-          <strong>Cloudflare Hyperdrive:</strong> The SvelteKit backend (Cloudflare
-          Worker) directly executes a SQL query against a regional PostgreSQL database.
-          This connection is managed and accelerated by Cloudflare Hyperdrive, which
-          provides efficient connection pooling. This method tests direct database
-          access from the Cloudflare edge worker.
-        </li>
-        <li>
-          <strong>Bun REST API (Proxied):</strong> The SvelteKit backend (Cloudflare
-          Worker) acts as a reverse proxy. It forwards the browser's request to a
-          separate Bun.js REST API server, which is also located in the same target
-          region (Helsinki, US East, or US West). This Bun server then executes a
-          SQL query against its regional PostgreSQL database. This method tests database
-          access through an additional application layer, with the Cloudflare Worker
-          handling the proxying and adding its own latency.
-        </li>
-      </ul>
-      <p>
-        The tool runs {RUN_COUNT} test rounds against {ENDPOINTS.length} distinct
-        API configurations (covering both methods in all three regions). Each round
-        queries all configurations sequentially in a random order to minimize interference.
-        A
-        <strong>{DELAY_BETWEEN_RUNS_MS / 1000}-second pause</strong> occurs
-        between rounds (after the first). The first round serves as a warm-up;
-        average results are calculated from runs 2 to {RUN_COUNT}.
-      </p>
-      <p><strong>Metrics Measured:</strong></p>
-      <ul class="list-disc list-inside pl-4 space-y-1">
-        <li>
-          <strong>Client Time:</strong> Total time measured in
-          <em>your browser</em> from initiating the request to the SvelteKit backend
-          (Cloudflare Worker) until the full response is received. This comprehensive
-          metric includes all network latencies (browser to Worker, Worker to DB/Bun
-          API if applicable) and all processing times involved (Worker request handling,
-          Hyperdrive query time or Bun API request/response time, and database query
-          execution).
-        </li>
-        <li>
-          <strong>Server Time:</strong>
-          For <em>Hyperdrive tests</em>, this is the pure database query
-          execution time, measured within the Cloudflare Worker after the
-          connection via Hyperdrive is established. For
-          <em>Bun REST API tests</em>, this is the pure database query execution
-          time as reported by the Bun REST API server itself (excluding the
-          proxying time through the Cloudflare Worker). This metric aims to
-          isolate database processing time, largely excluding network latencies
-          between your browser and the Cloudflare Worker, and between the Worker
-          and the Bun API.
-        </li>
-      </ul>
-      <p><strong>Caching Strategies Tested:</strong></p>
-      <ul class="list-disc list-inside pl-4 space-y-1 text-sm text-gray-700">
-        <li>
-          <strong>Browser Cache:</strong> Disabled for all benchmark requests
-          made by this tool using the <code>cache: "no-cache"</code> fetch option.
-        </li>
-        <li>
-          <strong>CDN-Cached:</strong> Endpoints labeled "CDN-Cached" involve
-          the SvelteKit backend (Cloudflare Worker) returning
-          <code>Cache-Control</code> headers (e.g., 30-second TTL). This allows Cloudflare's
-          CDN to cache the Worker's response at the edge, serving subsequent identical
-          requests directly from the CDN for improved performance.
-        </li>
-        <li>
-          <strong>Hyperdrive Tests:</strong>
-          <ul class="list-disc list-inside pl-4 space-y-1">
-            <li>
-              All Hyperdrive tests utilize its persistent, pooled connections to
-              the database, reducing the overhead of establishing new
-              connections for each query. Hyperdrive also caches prepared
-              statements.
-            </li>
-            <li>
-              "Hyperdrive <strong>CDN-Cached</strong>" configurations benefit
-              from both Hyperdrive's internal optimizations and Cloudflare CDN
-              caching of the SvelteKit Worker's final response.
-            </li>
-            <li>
-              "Hyperdrive <strong>Non-Cached</strong>" configurations use unique
-              URL paths for each request. This bypasses Cloudflare CDN and, by
-              using unique SQL comments and dynamic
-              <code>application_name</code> in the connection parameters within the
-              Worker, attempts to ensure a fresh query execution by the database
-              and bypass Hyperdrive's statement cache. Connection pooling remains
-              active.
-            </li>
-          </ul>
-        </li>
-        <li>
-          <strong>Bun REST API (Proxied) Tests:</strong>
-          <ul class="list-disc list-inside pl-4 space-y-1">
-            <li>
-              "Bun REST <strong>CDN-Cached</strong>": The SvelteKit Worker's
-              response, which contains data fetched from the Bun REST API, is
-              made cacheable by the Cloudflare CDN. The underlying Bun API
-              itself might also implement its own caching strategies for its
-              responses.
-            </li>
-            <li>
-              "Bun REST <strong>Non-Cached</strong>": The SvelteKit Worker's
-              response is explicitly not CDN-cacheable. The Worker also signals
-              to the Bun REST API (e.g., via query parameters like
-              <code>_nc=true</code> and dynamic IDs) to provide a fresh, non-cached
-              response from its end.
-            </li>
-          </ul>
-        </li>
-      </ul>
-      <p>
-        The SvelteKit backend (running on a Cloudflare Worker) intelligently
-        routes requests based on the endpoint configuration. For "Hyperdrive"
-        tests, it uses the <code>postgres</code> library to directly query the
-        database via a Hyperdrive binding. For "Bun REST" tests, it uses the
-        native <code>fetch</code> API to call the appropriate regional Bun API
-        URL. Non-cached variations for both types employ unique URL paths
-        generated on the client-side (e.g.,
-        <code>/api/non-cached-query-us-east-1678886400000-123</code>), which are
-        handled by a SvelteKit dynamic route (<code>/api/[endpoint]</code>) to
-        ensure cache busting at CDN and application levels.
-      </p>
-    </div>
-  </section>
+    <div class="overflow-x-auto shadow-md rounded-lg border border-gray-300">
+      <table class="w-full text-sm border-collapse benchmark-table">
+        <caption
+          class="text-base font-semibold p-2 text-left text-gray-700 bg-gray-50 border-b border-gray-300"
+        >
+          Benchmark Results (Lower is better)
+        </caption>
 
-  <section class="flex flex-col sm:flex-row gap-4 items-center">
-    <button
-      onclick={runBenchmark}
-      disabled={isLoading}
-      class="px-5 py-2.5 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200 w-full sm:w-auto flex items-center justify-center"
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 20 20"
-        fill="currentColor"
-        class="w-5 h-5 mr-2 -ml-1 {isLoading ? 'animate-spin' : 'hidden'}"
-      >
-        <path
-          fill-rule="evenodd"
-          d="M15.312 11.424a5.5 5.5 0 01-9.201-4.752L3.05 3.05a7 7 0 1010.818 10.818l-2.556-2.448zM10 18a8 8 0 100-16 8 8 0 000 16z"
-          clip-rule="evenodd"
-        />
-      </svg>
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 20 20"
-        fill="currentColor"
-        class="w-5 h-5 mr-1 -ml-1 {isLoading ? 'hidden' : 'inline-block'}"
-      >
-        <path
-          d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"
-        />
-      </svg>
-      {isLoading
-        ? `Running... (${Math.round(progress.current)}%)`
-        : `Run Benchmark (${RUN_COUNT} Rounds)`}
-    </button>
-  </section>
+        <thead class="bg-gray-100 text-xs">
+          <tr>
+            <th
+              rowspan="2"
+              class="p-2 border-b-2 border-r border-gray-300 font-semibold text-left sticky left-0 bg-gray-100 z-10"
+            >
+              Region
+            </th>
+            <th
+              rowspan="2"
+              class="p-2 border-b-2 border-r border-gray-300 font-semibold text-left sticky left-12 bg-gray-100 z-10"
+            >
+              Type
+            </th>
+            <th
+              rowspan="2"
+              class="p-2 border-b-2 border-r border-gray-300 font-semibold text-left sticky left-24 bg-gray-100 z-10"
+            >
+              Caching
+            </th>
 
-  {#if isLoading || progress.current > 0}
-    <div class="space-y-2">
-      <div
-        class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 overflow-hidden"
-        role="progressbar"
-        aria-valuenow={progress.current}
-        aria-valuemin="0"
-        aria-valuemax="100"
-        aria-label="Benchmark Progress"
-      >
-        <div
-          class="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
-          style:width="{progress.current}%"
-        ></div>
-      </div>
-      {#if benchmarkStatus}
-        <p class="text-sm text-center text-gray-600 h-4">
-          {benchmarkStatus}
-        </p>
-      {/if}
-    </div>
-  {/if}
-
-  {#if overallError && !isLoading}
-    <div
-      class="mt-4 p-4 bg-red-100 text-red-800 border border-red-300 rounded-md shadow-sm"
-      role="alert"
-    >
-      <strong class="font-semibold">Benchmark Error:</strong>
-      {overallError}
-    </div>
-  {/if}
-
-  {#if benchmarkRuns.length > 0}
-    <section class="mt-6 space-y-6">
-      <h2 class="text-xl font-semibold text-gray-800">Results</h2>
-
-      <!-- Responsive table that works on both mobile and desktop -->
-      <div class="overflow-x-auto shadow-md rounded-lg border border-gray-300">
-        <table class="w-full text-sm border-collapse benchmark-table">
-          <caption
-            class="text-base font-semibold p-2 text-left text-gray-700 bg-gray-50 border-b border-gray-300"
-          >
-            Benchmark Results (Lower is better)
-          </caption>
-
-          <thead class="bg-gray-100 text-xs">
-            <tr>
+            {#each { length: RUN_COUNT } as _, i}
+              {@const runId = i + 1}
               <th
-                rowspan="2"
-                class="p-2 border-b-2 border-r border-gray-300 font-semibold text-left sticky left-0 bg-gray-100 z-10"
+                colspan="3"
+                class="p-1.5 border-b border-r border-gray-300 font-semibold text-center {isWarmupRun(
+                  runId
+                )
+                  ? 'bg-amber-50'
+                  : ''}"
               >
-                Region
+                Run {runId}
+                {#if isWarmupRun(runId)}
+                  <span class="text-amber-600 font-normal">(Warm-up)</span>
+                {/if}
               </th>
-              <th
-                rowspan="2"
-                class="p-2 border-b-2 border-r border-gray-300 font-semibold text-left sticky left-12 bg-gray-100 z-10"
-              >
-                Type
-              </th>
-              <th
-                rowspan="2"
-                class="p-2 border-b-2 border-r border-gray-300 font-semibold text-left sticky left-24 bg-gray-100 z-10"
-              >
-                Caching
-              </th>
+            {/each}
 
-              {#each { length: RUN_COUNT } as _, i}
-                {@const runId = i + 1}
-                <th
-                  colspan="2"
-                  class="p-1.5 border-b border-r border-gray-300 font-semibold text-center {isWarmupRun(
-                    runId
-                  )
-                    ? 'bg-amber-50'
-                    : ''}"
-                >
-                  Run {runId}
-                  {#if isWarmupRun(runId)}
-                    <span class="text-amber-600 font-normal">(Warm-up)</span>
-                  {/if}
-                </th>
-              {/each}
+            <th
+              colspan="2"
+              class="p-1.5 border-b border-gray-300 font-semibold text-center bg-blue-50"
+            >
+              Avg (Runs 2-{RUN_COUNT})
+            </th>
+          </tr>
 
+          <tr>
+            {#each { length: RUN_COUNT } as _, i}
+              {@const runId = i + 1}
               <th
-                colspan="2"
-                class="p-1.5 border-b border-gray-300 font-semibold text-center bg-blue-50"
-              >
-                Avg (Runs 2-{RUN_COUNT})
-              </th>
-            </tr>
-
-            <tr>
-              {#each { length: RUN_COUNT } as _, i}
-                {@const runId = i + 1}
-                <th
-                  class="px-2 py-1 border-b-2 border-r border-gray-300 font-semibold text-center {isWarmupRun(
-                    runId
-                  )
-                    ? 'bg-amber-50'
-                    : ''}">Client</th
-                >
-                <th
-                  class="px-2 py-1 border-b-2 border-r border-gray-300 font-semibold text-center {isWarmupRun(
-                    runId
-                  )
-                    ? 'bg-amber-50'
-                    : ''}">Server</th
-                >
-              {/each}
-
-              <th
-                class="px-2 py-1 border-b-2 border-r border-gray-300 font-semibold text-center bg-blue-50 text-blue-800"
-                >Client</th
+                class="px-2 py-1 border-b-2 border-r border-gray-300 font-semibold text-center {isWarmupRun(
+                  runId
+                )
+                  ? 'bg-amber-50'
+                  : ''}">Client</th
               >
               <th
-                class="px-2 py-1 border-b-2 border-gray-300 font-semibold text-center bg-blue-50 text-blue-800"
-                >Server</th
+                class="px-2 py-1 border-b-2 border-r border-gray-300 font-semibold text-center {isWarmupRun(
+                  runId
+                )
+                  ? 'bg-amber-50'
+                  : ''}">Server</th
               >
-            </tr>
-          </thead>
+              <th
+                class="px-2 py-1 border-b-2 border-r border-gray-300 font-semibold text-center {isWarmupRun(
+                  runId
+                )
+                  ? 'bg-amber-50'
+                  : ''}">Colo</th
+              >
+            {/each}
 
-          <tbody>
-            {#each regions as region}
-              {#each types as type}
-                {#each cacheTypes as cached}
-                  {@const endpoint = getEndpointByProperties(
-                    region,
-                    type,
-                    cached
-                  )}
-                  {#if endpoint}
-                    {@const avg = averageResults[endpoint.id]}
-                    <tr
-                      class="border-b border-gray-200 last:border-b-0 hover:bg-blue-50"
+            <th
+              class="px-2 py-1 border-b-2 border-r border-gray-300 font-semibold text-center bg-blue-50 text-blue-800"
+              >Client</th
+            >
+            <th
+              class="px-2 py-1 border-b-2 border-gray-300 font-semibold text-center bg-blue-50 text-blue-800"
+              >Server</th
+            >
+          </tr>
+        </thead>
+
+        <tbody>
+          {#each regions as region}
+            {#each types as type}
+              {#each cacheTypes as cached}
+                {@const endpoint = getEndpointByProperties(
+                  region,
+                  type,
+                  cached
+                )}
+                {#if endpoint}
+                  {@const avg = averageResults[endpoint.id]}
+                  <tr
+                    class="border-b border-gray-200 last:border-b-0 hover:bg-blue-50"
+                  >
+                    <th
+                      class="p-2 font-medium text-gray-900 text-left sticky left-0 bg-white border-r border-gray-200 z-5"
                     >
-                      <!-- Region, Type, and Cache columns are now always visible -->
-                      <th
-                        class="p-2 font-medium text-gray-900 text-left sticky left-0 bg-white border-r border-gray-200 z-5"
-                      >
-                        {getRegionLabel(region)}
-                      </th>
-                      <th
-                        class="p-2 font-medium text-gray-900 text-left sticky left-12 bg-white border-r border-gray-200 z-5"
-                      >
-                        {getTypeLabel(type)}
-                      </th>
-                      <th
-                        class="p-2 font-medium text-gray-900 text-left sticky left-24 bg-white border-r border-gray-200 z-5"
-                      >
-                        {getCacheLabel(cached)}
-                      </th>
+                      {getRegionLabel(region)}
+                    </th>
+                    <th
+                      class="p-2 font-medium text-gray-900 text-left sticky left-12 bg-white border-r border-gray-200 z-5"
+                    >
+                      {getTypeLabel(type)}
+                    </th>
+                    <th
+                      class="p-2 font-medium text-gray-900 text-left sticky left-24 bg-white border-r border-gray-200 z-5"
+                    >
+                      {getCacheLabel(cached)}
+                    </th>
 
-                      {#each { length: RUN_COUNT } as _, i}
-                        {@const runId = i + 1}
-                        {@const result = getResult(runId, endpoint.id)}
+                    {#each { length: RUN_COUNT } as _, i}
+                      {@const runId = i + 1}
+                      {@const result = getResult(runId, endpoint.id)}
 
-                        {#if result?.error}
-                          <td
-                            colspan="2"
-                            class="p-1.5 text-red-600 text-xs border-r {isWarmupRun(
-                              runId
-                            )
-                              ? 'bg-amber-50/30'
-                              : ''}"
+                      {#if result?.error}
+                        <td
+                          colspan="3"
+                          class="p-1.5 text-red-600 text-xs border-r {isWarmupRun(
+                            runId
+                          )
+                            ? 'bg-amber-50/30'
+                            : ''}"
+                        >
+                          <p class="font-semibold">
+                            {result.binding || "Error"}
+                            {#if result.colo && result.colo !== "Error"}
+                              ({result.colo})
+                            {/if}
+                          </p>
+                          <p
+                            class="text-[10px] mt-0.5 break-words max-w-[80px]"
                           >
-                            <p class="font-semibold">
-                              {result.binding || "Error"}
-                            </p>
-                            <p
-                              class="text-[10px] mt-0.5 break-words max-w-[80px]"
-                            >
-                              {result.error}
-                            </p>
-                          </td>
-                        {:else if !result || result.binding === "Pending..."}
-                          <td
-                            class="p-1.5 text-center text-gray-400 italic text-xs {isWarmupRun(
-                              runId
-                            )
-                              ? 'bg-amber-50/30'
-                              : ''}">...</td
-                          >
-                          <td
-                            class="p-1.5 text-center text-gray-400 italic text-xs border-r {isWarmupRun(
-                              runId
-                            )
-                              ? 'bg-amber-50/30'
-                              : ''}">...</td
-                          >
-                        {:else}
-                          <td
-                            class="p-1.5 text-right whitespace-nowrap text-xs {isWarmupRun(
-                              runId
-                            )
-                              ? 'bg-amber-50/30'
-                              : ''}"
-                          >
-                            {formatTime(result.clientTime)}
-                          </td>
-                          <td
-                            class="p-1.5 text-right whitespace-nowrap text-xs border-r {isWarmupRun(
-                              runId
-                            )
-                              ? 'bg-amber-50/30'
-                              : ''}"
-                          >
-                            {formatTime(result.serverTime)}
-                          </td>
-                        {/if}
-                      {/each}
+                            {result.error}
+                          </p>
+                        </td>
+                      {:else if !result || result.binding === "Pending..."}
+                        <td
+                          class="p-1.5 text-center text-gray-400 italic text-xs {isWarmupRun(
+                            runId
+                          )
+                            ? 'bg-amber-50/30'
+                            : ''}">...</td
+                        >
+                        <td
+                          class="p-1.5 text-center text-gray-400 italic text-xs {isWarmupRun(
+                            runId
+                          )
+                            ? 'bg-amber-50/30'
+                            : ''}">...</td
+                        >
+                        <td
+                          class="p-1.5 text-center text-gray-400 italic text-xs border-r {isWarmupRun(
+                            runId
+                          )
+                            ? 'bg-amber-50/30'
+                            : ''}">...</td
+                        >
+                      {:else}
+                        <td
+                          class="p-1.5 text-right whitespace-nowrap text-xs {isWarmupRun(
+                            runId
+                          )
+                            ? 'bg-amber-50/30'
+                            : ''}"
+                        >
+                          {formatTime(result.clientTime)}
+                        </td>
+                        <td
+                          class="p-1.5 text-right whitespace-nowrap text-xs {isWarmupRun(
+                            runId
+                          )
+                            ? 'bg-amber-50/30'
+                            : ''}"
+                        >
+                          {formatTime(result.serverTime)}
+                        </td>
+                        <td
+                          class="p-1.5 text-center whitespace-nowrap text-xs border-r {isWarmupRun(
+                            runId
+                          )
+                            ? 'bg-amber-50/30'
+                            : ''}"
+                        >
+                          {result.colo || "N/A"}
+                        </td>
+                      {/if}
+                    {/each}
 
-                      <td
-                        class="p-1.5 text-right whitespace-nowrap text-xs font-medium bg-blue-50/50 border-r"
-                        class:best={avg?.avgClientTime !== null &&
-                          avg.avgClientTime === bestAvgClientTime}
-                        class:worst={avg?.avgClientTime !== null &&
-                          avg.avgClientTime === worstAvgClientTime}
-                      >
-                        {formatTime(avg?.avgClientTime)}
-                      </td>
-                      <td
-                        class="p-1.5 text-right whitespace-nowrap text-xs font-medium bg-blue-50/50"
-                        class:best={avg?.avgServerTime !== null &&
-                          avg.avgServerTime === bestAvgServerTime}
-                        class:worst={avg?.avgServerTime !== null &&
-                          avg.avgServerTime === worstAvgServerTime}
-                      >
-                        {formatTime(avg?.avgServerTime)}
-                      </td>
-                    </tr>
-                  {/if}
-                {/each}
+                    <td
+                      class="p-1.5 text-right whitespace-nowrap text-xs font-medium bg-blue-50/50 border-r"
+                      class:best={avg?.avgClientTime !== null &&
+                        avg.avgClientTime === bestAvgClientTime}
+                      class:worst={avg?.avgClientTime !== null &&
+                        avg.avgClientTime === worstAvgClientTime}
+                    >
+                      {formatTime(avg?.avgClientTime)}
+                    </td>
+                    <td
+                      class="p-1.5 text-right whitespace-nowrap text-xs font-medium bg-blue-50/50"
+                      class:best={avg?.avgServerTime !== null &&
+                        avg.avgServerTime === bestAvgServerTime}
+                      class:worst={avg?.avgServerTime !== null &&
+                        avg.avgServerTime === worstAvgServerTime}
+                    >
+                      {formatTime(avg?.avgServerTime)}
+                    </td>
+                  </tr>
+                {/if}
               {/each}
             {/each}
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Comparison Summary -->
-      {#if Object.keys(averageResults).length > 0 && !isLoading && benchmarkRuns.length >= RUN_COUNT}
-        <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
-            <h3 class="text-lg font-semibold mb-3 text-gray-800">
-              Hyperdrive vs. Bun REST Comparison
-            </h3>
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead class="bg-gray-50">
-                  <tr>
-                    <th class="p-2 text-left font-medium">Region</th>
-                    <th class="p-2 text-center font-medium">Caching</th>
-                    <th class="p-2 text-right font-medium">Hyperdrive</th>
-                    <th class="p-2 text-right font-medium">Bun REST</th>
-                    <th class="p-2 text-right font-medium">Difference</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200">
-                  {#each regions as region}
-                    {#each cacheTypes as cached}
-                      {@const hyperdriveEndpoint = getEndpointByProperties(
-                        region,
-                        "hyperdrive",
-                        cached
-                      )}
-                      {@const bunEndpoint = getEndpointByProperties(
-                        region,
-                        "bun-rest",
-                        cached
-                      )}
-
-                      {#if hyperdriveEndpoint && bunEndpoint}
-                        {@const hyperdriveAvg =
-                          averageResults[hyperdriveEndpoint.id].avgClientTime}
-                        {@const bunAvg =
-                          averageResults[bunEndpoint.id].avgClientTime}
-                        {@const diff =
-                          hyperdriveAvg !== null && bunAvg !== null
-                            ? bunAvg - hyperdriveAvg
-                            : null}
-                        {@const percentage =
-                          hyperdriveAvg !== null &&
-                          bunAvg !== null &&
-                          hyperdriveAvg !== 0
-                            ? (diff! / hyperdriveAvg) * 100
-                            : null}
-
-                        <tr class="hover:bg-gray-50">
-                          <td class="p-2">{getRegionLabel(region)}</td>
-                          <td class="p-2 text-center"
-                            >{getCacheLabel(cached)}</td
-                          >
-                          <td class="p-2 text-right font-medium"
-                            >{formatTime(hyperdriveAvg)}</td
-                          >
-                          <td class="p-2 text-right font-medium"
-                            >{formatTime(bunAvg)}</td
-                          >
-                          <td
-                            class="p-2 text-right font-medium {diff !== null &&
-                            diff > 0
-                              ? 'text-green-600'
-                              : diff !== null && diff < 0
-                                ? 'text-red-600'
-                                : ''}"
-                          >
-                            {diff !== null
-                              ? `${diff > 0 ? "+" : ""}${Math.round(diff)} ms (${Math.abs(Math.round(percentage || 0))}%)`
-                              : "N/A"}
-                          </td>
-                        </tr>
-                      {/if}
-                    {/each}
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-            <p class="text-xs text-gray-500 mt-2">
-              Positive difference means Hyperdrive is faster
-            </p>
-          </div>
-
-          <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
-            <h3 class="text-lg font-semibold mb-3 text-gray-800">
-              Cached vs. Non-Cached Comparison
-            </h3>
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead class="bg-gray-50">
-                  <tr>
-                    <th class="p-2 text-left font-medium">Region</th>
-                    <th class="p-2 text-center font-medium">Type</th>
-                    <th class="p-2 text-right font-medium">Cached</th>
-                    <th class="p-2 text-right font-medium">Non-Cached</th>
-                    <th class="p-2 text-right font-medium">Improvement</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200">
-                  {#each regions as region}
-                    {#each types as type}
-                      {@const cachedEndpoint = getEndpointByProperties(
-                        region,
-                        type,
-                        true
-                      )}
-                      {@const nonCachedEndpoint = getEndpointByProperties(
-                        region,
-                        type,
-                        false
-                      )}
-
-                      {#if cachedEndpoint && nonCachedEndpoint}
-                        {@const cachedAvg =
-                          averageResults[cachedEndpoint.id].avgClientTime}
-                        {@const nonCachedAvg =
-                          averageResults[nonCachedEndpoint.id].avgClientTime}
-                        {@const diff =
-                          cachedAvg !== null && nonCachedAvg !== null
-                            ? nonCachedAvg - cachedAvg
-                            : null}
-                        {@const percentage =
-                          cachedAvg !== null &&
-                          nonCachedAvg !== null &&
-                          nonCachedAvg !== 0
-                            ? (diff! / nonCachedAvg) * 100
-                            : null}
-
-                        <tr class="hover:bg-gray-50">
-                          <td class="p-2">{getRegionLabel(region)}</td>
-                          <td class="p-2 text-center">{getTypeLabel(type)}</td>
-                          <td class="p-2 text-right font-medium"
-                            >{formatTime(cachedAvg)}</td
-                          >
-                          <td class="p-2 text-right font-medium"
-                            >{formatTime(nonCachedAvg)}</td
-                          >
-                          <td
-                            class="p-2 text-right font-medium {diff !== null &&
-                            diff > 0
-                              ? 'text-green-600'
-                              : diff !== null && diff < 0
-                                ? 'text-red-600'
-                                : ''}"
-                          >
-                            {diff !== null
-                              ? `${diff > 0 ? "+" : ""}${Math.round(diff)} ms (${Math.abs(Math.round(percentage || 0))}%)`
-                              : "N/A"}
-                          </td>
-                        </tr>
-                      {/if}
-                    {/each}
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-            <p class="text-xs text-gray-500 mt-2">
-              Positive improvement means caching is faster
-            </p>
-          </div>
-        </div>
-      {/if}
-    </section>
-  {:else if !isLoading && !overallError}
-    <p class="text-gray-500 mt-6 italic text-center">
-      Click the button to start the benchmark.
-    </p>
-  {/if}
-</div>
-
-<style>
-  /* Static sticky headers */
-  .benchmark-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-  }
-
-  /* Make sure sticky left columns work with hover */
-  .benchmark-table tbody tr:hover th.sticky {
-    background-color: #eff6ff !important;
-  }
-
-  /* Ensure sticky columns stay visible during scroll */
-  .benchmark-table tbody th.sticky {
-    z-index: 5;
-  }
-
-  /* Result highlighting */
-  .benchmark-table td.best {
-    background-color: #dcfce7 !important;
-    font-weight: 600;
-  }
-
-  .benchmark-table td.worst {
-    background-color: #fee2e2 !important;
-  }
-
-  /* Hover effects */
-  .benchmark-table tbody tr:hover td.best {
-    background-color: #bbf7d0 !important;
-  }
-
-  .benchmark-table tbody tr:hover td.worst {
-    background-color: #fecaca !important;
-  }
-
-  .benchmark-table tbody tr:hover th {
-    background-color: #eff6ff !important;
-  }
-
-  /* Mobile optimization - ensure no horizontal overflow */
-  @media (max-width: 640px) {
-    .benchmark-table th,
-    .benchmark-table td {
-      padding: 0.5rem 0.25rem;
-      font-size: 0.7rem;
-    }
-
-    /* Only show core columns on very small screens */
-    .benchmark-table th:nth-child(3),
-    .benchmark-table td:nth-child(3) {
-      display: none;
-    }
-  }
-</style>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{:else if !isLoading && !overallError}
+  <p class="text-gray-500 mt-6 italic text-center">
+    Click the button to start the benchmark.
+  </p>
+{/if}
