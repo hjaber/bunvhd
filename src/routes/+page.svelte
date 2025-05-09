@@ -282,6 +282,7 @@
         serverTime: jsonResult.timeMs ?? null,
         binding: jsonResult.binding ?? "Unknown",
         error: jsonResult.error ?? null,
+        colo: jsonResult.colo ?? null,
       };
     } catch (error: any) {
       const clientTimeSoFar = performance.now() - startTime;
@@ -291,6 +292,7 @@
         serverTime: null,
         binding: "Fetch Error",
         error: error.message || "Unknown fetch error",
+        colo: null,
       };
     }
   }
@@ -863,6 +865,165 @@
         </table>
       </div>
     </section>
+    {#if Object.keys(averageResults).length > 0 && !isLoading && benchmarkRuns.length >= RUN_COUNT}
+      <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
+          <h3 class="text-lg font-semibold mb-3 text-gray-800">
+            Hyperdrive vs. Bun REST Comparison
+          </h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="p-2 text-left font-medium">Region</th>
+                  <th class="p-2 text-center font-medium">Caching</th>
+                  <th class="p-2 text-right font-medium">Hyperdrive</th>
+                  <th class="p-2 text-right font-medium">Bun REST</th>
+                  <th class="p-2 text-right font-medium">Difference</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200">
+                {#each regions as region}
+                  {#each cacheTypes as cached}
+                    {@const hyperdriveEndpoint = getEndpointByProperties(
+                      region,
+                      "hyperdrive",
+                      cached
+                    )}
+                    {@const bunEndpoint = getEndpointByProperties(
+                      region,
+                      "bun-rest",
+                      cached
+                    )}
+
+                    {#if hyperdriveEndpoint && bunEndpoint}
+                      {@const hyperdriveAvg =
+                        averageResults[hyperdriveEndpoint.id].avgClientTime}
+                      {@const bunAvg =
+                        averageResults[bunEndpoint.id].avgClientTime}
+                      {@const diff =
+                        hyperdriveAvg !== null && bunAvg !== null
+                          ? bunAvg - hyperdriveAvg
+                          : null}
+                      {@const percentage =
+                        hyperdriveAvg !== null &&
+                        bunAvg !== null &&
+                        hyperdriveAvg !== 0
+                          ? (diff! / hyperdriveAvg) * 100
+                          : null}
+
+                      <tr class="hover:bg-gray-50">
+                        <td class="p-2">{getRegionLabel(region)}</td>
+                        <td class="p-2 text-center">{getCacheLabel(cached)}</td>
+                        <td class="p-2 text-right font-medium"
+                          >{formatTime(hyperdriveAvg)}</td
+                        >
+                        <td class="p-2 text-right font-medium"
+                          >{formatTime(bunAvg)}</td
+                        >
+                        <td
+                          class="p-2 text-right font-medium {diff !== null &&
+                          diff > 0
+                            ? 'text-green-600'
+                            : diff !== null && diff < 0
+                              ? 'text-red-600'
+                              : ''}"
+                        >
+                          {diff !== null
+                            ? `${diff > 0 ? "+" : ""}${Math.round(diff)} ms (${Math.abs(Math.round(percentage || 0))}%)`
+                            : "N/A"}
+                        </td>
+                      </tr>
+                    {/if}
+                  {/each}
+                {/each}
+              </tbody>
+            </table>
+          </div>
+          <p class="text-xs text-gray-500 mt-2">
+            Positive difference means Hyperdrive is faster
+          </p>
+        </div>
+
+        <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
+          <h3 class="text-lg font-semibold mb-3 text-gray-800">
+            Cached vs. Non-Cached Comparison
+          </h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="p-2 text-left font-medium">Region</th>
+                  <th class="p-2 text-center font-medium">Type</th>
+                  <th class="p-2 text-right font-medium">Cached</th>
+                  <th class="p-2 text-right font-medium">Non-Cached</th>
+                  <th class="p-2 text-right font-medium">Improvement</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200">
+                {#each regions as region}
+                  {#each types as type}
+                    {@const cachedEndpoint = getEndpointByProperties(
+                      region,
+                      type,
+                      true
+                    )}
+                    {@const nonCachedEndpoint = getEndpointByProperties(
+                      region,
+                      type,
+                      false
+                    )}
+
+                    {#if cachedEndpoint && nonCachedEndpoint}
+                      {@const cachedAvg =
+                        averageResults[cachedEndpoint.id].avgClientTime}
+                      {@const nonCachedAvg =
+                        averageResults[nonCachedEndpoint.id].avgClientTime}
+                      {@const diff =
+                        cachedAvg !== null && nonCachedAvg !== null
+                          ? nonCachedAvg - cachedAvg
+                          : null}
+                      {@const percentage =
+                        cachedAvg !== null &&
+                        nonCachedAvg !== null &&
+                        nonCachedAvg !== 0
+                          ? (diff! / nonCachedAvg) * 100
+                          : null}
+
+                      <tr class="hover:bg-gray-50">
+                        <td class="p-2">{getRegionLabel(region)}</td>
+                        <td class="p-2 text-center">{getTypeLabel(type)}</td>
+                        <td class="p-2 text-right font-medium"
+                          >{formatTime(cachedAvg)}</td
+                        >
+                        <td class="p-2 text-right font-medium"
+                          >{formatTime(nonCachedAvg)}</td
+                        >
+                        <td
+                          class="p-2 text-right font-medium {diff !== null &&
+                          diff > 0
+                            ? 'text-green-600'
+                            : diff !== null && diff < 0
+                              ? 'text-red-600'
+                              : ''}"
+                        >
+                          {diff !== null
+                            ? `${diff > 0 ? "+" : ""}${Math.round(diff)} ms (${Math.abs(Math.round(percentage || 0))}%)`
+                            : "N/A"}
+                        </td>
+                      </tr>
+                    {/if}
+                  {/each}
+                {/each}
+              </tbody>
+            </table>
+          </div>
+          <p class="text-xs text-gray-500 mt-2">
+            Positive improvement means caching is faster
+          </p>
+        </div>
+      </div>
+    {/if}
   {:else if !isLoading && !overallError}
     <p class="text-gray-500 mt-6 italic text-center">
       Click the button to start the benchmark.
