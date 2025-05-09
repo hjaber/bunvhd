@@ -36,7 +36,7 @@
       type: "hyperdrive",
       cached: true,
       description:
-        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Cached Connection Pool) with CDN caching. Target DB in US East.",
+        "SvelteKit backend (Cloudflare Worker) queries DB via Hyperdrive. Worker's response is CDN-cached. Target DB in US East.",
     },
     {
       id: "hyperdriveNonCachedUSEast",
@@ -46,7 +46,7 @@
       type: "hyperdrive",
       cached: false,
       description:
-        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Non-Cached Connection Pool) with dynamic path to bypass all caching. Target DB in US East.",
+        "SvelteKit backend (Cloudflare Worker) queries DB via Hyperdrive. Dynamic URL bypasses CDN & aims for fresh DB data. Hyperdrive connection pooling active. Target DB in US East.",
     },
 
     // US East Region - Bun REST (via SvelteKit Proxy)
@@ -58,7 +58,7 @@
       type: "bun-rest",
       cached: true,
       description:
-        "Proxy request to Bun REST API (US East 🇺🇸) through SvelteKit backend with CDN caching.",
+        "SvelteKit backend (Cloudflare Worker) proxies to Bun REST API. Worker's response is CDN-cached. Bun API & DB in US East.",
     },
     {
       id: "bunNonCachedUSEast",
@@ -68,7 +68,7 @@
       type: "bun-rest",
       cached: false,
       description:
-        "Proxy request to Bun REST API (US East 🇺🇸) through SvelteKit backend with no caching.",
+        "SvelteKit backend (Cloudflare Worker) proxies to Bun REST API. Worker's response not CDN-cached; signals Bun API for fresh data. Bun API & DB in US East.",
     },
 
     // US West Region - Hyperdrive
@@ -80,7 +80,7 @@
       type: "hyperdrive",
       cached: true,
       description:
-        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Cached Connection Pool) with CDN caching. Target DB in US West.",
+        "SvelteKit backend (Cloudflare Worker) queries DB via Hyperdrive. Worker's response is CDN-cached. Target DB in US West.",
     },
     {
       id: "hyperdriveNonCachedUSWest",
@@ -90,7 +90,7 @@
       type: "hyperdrive",
       cached: false,
       description:
-        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Non-Cached Connection Pool) with dynamic path to bypass all caching. Target DB in US West.",
+        "SvelteKit backend (Cloudflare Worker) queries DB via Hyperdrive. Dynamic URL bypasses CDN & aims for fresh DB data. Hyperdrive connection pooling active. Target DB in US West.",
     },
 
     // US West Region - Bun REST (via SvelteKit Proxy)
@@ -102,7 +102,7 @@
       type: "bun-rest",
       cached: true,
       description:
-        "Proxy request to Bun REST API (US West 🇺🇸) through SvelteKit backend with CDN caching.",
+        "SvelteKit backend (Cloudflare Worker) proxies to Bun REST API. Worker's response is CDN-cached. Bun API & DB in US West.",
     },
     {
       id: "bunNonCachedUSWest",
@@ -112,29 +112,29 @@
       type: "bun-rest",
       cached: false,
       description:
-        "Proxy request to Bun REST API (US West 🇺🇸) through SvelteKit backend with no caching.",
+        "SvelteKit backend (Cloudflare Worker) proxies to Bun REST API. Worker's response not CDN-cached; signals Bun API for fresh data. Bun API & DB in US West.",
     },
 
     // Helsinki Region - Hyperdrive
     {
-      id: "hyperdriveCachedLocal",
-      url: "/api/cached-query?cdnCache=30",
+      id: "hyperdriveCachedLocal", // Consider renaming ID to hyperdriveCachedHelsinki for clarity
+      url: "/api/cached-query?cdnCache=30", // This path is generic, ensure your API router distinguishes Helsinki if needed, or make specific e.g. /api/cached-query-hel
       label: "Hyperdrive Helsinki 🇫🇮 CDN-Cached",
       region: "helsinki",
       type: "hyperdrive",
       cached: true,
       description:
-        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Cached Connection Pool) with CDN caching. Server is in Helsinki.",
+        "SvelteKit backend (Cloudflare Worker) queries DB via Hyperdrive. Worker's response is CDN-cached. Target DB in Helsinki.",
     },
     {
-      id: "hyperdriveNonCachedLocal",
-      url: "/api/non-cached-query?_nc=true",
+      id: "hyperdriveNonCachedLocal", // Consider renaming ID to hyperdriveNonCachedHelsinki
+      url: "/api/non-cached-query?_nc=true", // This path is generic, ensure your API router distinguishes Helsinki, or make specific e.g. /api/non-cached-query-hel
       label: "Hyperdrive Helsinki 🇫🇮 Non-Cached",
       region: "helsinki",
       type: "hyperdrive",
       cached: false,
       description:
-        "Query via SvelteKit backend API using Cloudflare Hyperdrive (Non-Cached Connection Pool) with dynamic path to bypass all caching. Server is in Helsinki.",
+        "SvelteKit backend (Cloudflare Worker) queries DB via Hyperdrive. Dynamic URL bypasses CDN & aims for fresh DB data. Hyperdrive connection pooling active. Target DB in Helsinki.",
     },
 
     // Helsinki Region - Bun REST (via SvelteKit Proxy)
@@ -146,7 +146,7 @@
       type: "bun-rest",
       cached: true,
       description:
-        "Proxy request to Bun REST API (Helsinki 🇫🇮) through SvelteKit backend with CDN caching.",
+        "SvelteKit backend (Cloudflare Worker) proxies to Bun REST API. Worker's response is CDN-cached. Bun API & DB in Helsinki.",
     },
     {
       id: "bunNonCachedHEL",
@@ -156,7 +156,7 @@
       type: "bun-rest",
       cached: false,
       description:
-        "Proxy request to Bun REST API (Helsinki 🇫🇮) through SvelteKit backend with no caching.",
+        "SvelteKit backend (Cloudflare Worker) proxies to Bun REST API. Worker's response not CDN-cached; signals Bun API for fresh data. Bun API & DB in Helsinki.",
     },
   ] as const;
 
@@ -507,8 +507,11 @@
       Database Performance Benchmark
     </h1>
     <p class="text-gray-600">
-      Comparing Cloudflare Hyperdrive vs. direct Bun REST API access (Helsinki
-      🇫🇮 & US East 🇺🇸).
+      Comparing database query performance using Cloudflare Hyperdrive versus a
+      proxied Bun.js REST API. Tests are conducted against databases and
+      application servers in Helsinki 🇫🇮, US East 🇺🇸, and US West 🇺🇸. All
+      requests from your browser are handled by a SvelteKit backend API deployed
+      on Cloudflare Workers.
     </p>
   </header>
 
@@ -516,42 +519,131 @@
     <h2 class="text-lg font-semibold text-gray-700 mb-2">How it Works</h2>
     <div class="text-sm text-gray-700 space-y-2">
       <p>
-        This tool runs {RUN_COUNT} test rounds against {ENDPOINTS.length} API endpoints.
-        Each round queries all endpoints sequentially in a random order. There is
-        a
-        <strong>{DELAY_BETWEEN_RUNS_MS / 1000}-second pause</strong> between
-        each round (after the first). The first round acts as a warm-up. Average
-        results use runs 2-{RUN_COUNT}.
+        This benchmark evaluates two database access patterns, with all requests
+        from your browser being routed through a SvelteKit backend application
+        running on Cloudflare Workers:
       </p>
       <ul class="list-disc list-inside pl-4 space-y-1">
         <li>
-          <strong>Client Time:</strong> Measured in <em>your browser</em>. Total
-          time from sending a request to receiving the full response headers and
-          body. Includes <strong class="text-red-600">network latency</strong>
-          and <strong class="text-red-600">server processing time</strong>.
+          <strong>Cloudflare Hyperdrive:</strong> The SvelteKit backend (Cloudflare
+          Worker) directly executes a SQL query against a regional PostgreSQL database.
+          This connection is managed and accelerated by Cloudflare Hyperdrive, which
+          provides efficient connection pooling. This method tests direct database
+          access from the Cloudflare edge worker.
         </li>
         <li>
-          <strong>Server Time:</strong> Measured <em>on the server</em> (database
-          query time). Excludes network latency.
+          <strong>Bun REST API (Proxied):</strong> The SvelteKit backend (Cloudflare
+          Worker) acts as a reverse proxy. It forwards the browser's request to a
+          separate Bun.js REST API server, which is also located in the same target
+          region (Helsinki, US East, or US West). This Bun server then executes a
+          SQL query against its regional PostgreSQL database. This method tests database
+          access through an additional application layer, with the Cloudflare Worker
+          handling the proxying and adding its own latency.
         </li>
       </ul>
-      <p><strong>Caching Notes:</strong></p>
+      <p>
+        The tool runs {RUN_COUNT} test rounds against {ENDPOINTS.length} distinct
+        API configurations (covering both methods in all three regions). Each round
+        queries all configurations sequentially in a random order to minimize interference.
+        A
+        <strong>{DELAY_BETWEEN_RUNS_MS / 1000}-second pause</strong> occurs
+        between rounds (after the first). The first round serves as a warm-up;
+        average results are calculated from runs 2 to {RUN_COUNT}.
+      </p>
+      <p><strong>Metrics Measured:</strong></p>
+      <ul class="list-disc list-inside pl-4 space-y-1">
+        <li>
+          <strong>Client Time:</strong> Total time measured in
+          <em>your browser</em> from initiating the request to the SvelteKit backend
+          (Cloudflare Worker) until the full response is received. This comprehensive
+          metric includes all network latencies (browser to Worker, Worker to DB/Bun
+          API if applicable) and all processing times involved (Worker request handling,
+          Hyperdrive query time or Bun API request/response time, and database query
+          execution).
+        </li>
+        <li>
+          <strong>Server Time:</strong>
+          For <em>Hyperdrive tests</em>, this is the pure database query
+          execution time, measured within the Cloudflare Worker after the
+          connection via Hyperdrive is established. For
+          <em>Bun REST API tests</em>, this is the pure database query execution
+          time as reported by the Bun REST API server itself (excluding the
+          proxying time through the Cloudflare Worker). This metric aims to
+          isolate database processing time, largely excluding network latencies
+          between your browser and the Cloudflare Worker, and between the Worker
+          and the Bun API.
+        </li>
+      </ul>
+      <p><strong>Caching Strategies Tested:</strong></p>
       <ul class="list-disc list-inside pl-4 space-y-1 text-sm text-gray-700">
-        <li>Browser caching is disabled for all requests.</li>
         <li>
-          "CDN-Cached" endpoints use Cloudflare CDN caching with <code
-            >Cache-Control</code
-          > headers (30s TTL).
+          <strong>Browser Cache:</strong> Disabled for all benchmark requests
+          made by this tool using the <code>cache: "no-cache"</code> fetch option.
         </li>
         <li>
-          "Hyperdrive Cached" endpoints still use Hyperdrive's connection
-          pooling internally.
+          <strong>CDN-Cached:</strong> Endpoints labeled "CDN-Cached" involve
+          the SvelteKit backend (Cloudflare Worker) returning
+          <code>Cache-Control</code> headers (e.g., 30-second TTL). This allows Cloudflare's
+          CDN to cache the Worker's response at the edge, serving subsequent identical
+          requests directly from the CDN for improved performance.
         </li>
         <li>
-          This allows us to compare both connection-level caching and CDN-level
-          caching.
+          <strong>Hyperdrive Tests:</strong>
+          <ul class="list-disc list-inside pl-4 space-y-1">
+            <li>
+              All Hyperdrive tests utilize its persistent, pooled connections to
+              the database, reducing the overhead of establishing new
+              connections for each query. Hyperdrive also caches prepared
+              statements.
+            </li>
+            <li>
+              "Hyperdrive <strong>CDN-Cached</strong>" configurations benefit
+              from both Hyperdrive's internal optimizations and Cloudflare CDN
+              caching of the SvelteKit Worker's final response.
+            </li>
+            <li>
+              "Hyperdrive <strong>Non-Cached</strong>" configurations use unique
+              URL paths for each request. This bypasses Cloudflare CDN and, by
+              using unique SQL comments and dynamic
+              <code>application_name</code> in the connection parameters within the
+              Worker, attempts to ensure a fresh query execution by the database
+              and bypass Hyperdrive's statement cache. Connection pooling remains
+              active.
+            </li>
+          </ul>
+        </li>
+        <li>
+          <strong>Bun REST API (Proxied) Tests:</strong>
+          <ul class="list-disc list-inside pl-4 space-y-1">
+            <li>
+              "Bun REST <strong>CDN-Cached</strong>": The SvelteKit Worker's
+              response, which contains data fetched from the Bun REST API, is
+              made cacheable by the Cloudflare CDN. The underlying Bun API
+              itself might also implement its own caching strategies for its
+              responses.
+            </li>
+            <li>
+              "Bun REST <strong>Non-Cached</strong>": The SvelteKit Worker's
+              response is explicitly not CDN-cacheable. The Worker also signals
+              to the Bun REST API (e.g., via query parameters like
+              <code>_nc=true</code> and dynamic IDs) to provide a fresh, non-cached
+              response from its end.
+            </li>
+          </ul>
         </li>
       </ul>
+      <p>
+        The SvelteKit backend (running on a Cloudflare Worker) intelligently
+        routes requests based on the endpoint configuration. For "Hyperdrive"
+        tests, it uses the <code>postgres</code> library to directly query the
+        database via a Hyperdrive binding. For "Bun REST" tests, it uses the
+        native <code>fetch</code> API to call the appropriate regional Bun API
+        URL. Non-cached variations for both types employ unique URL paths
+        generated on the client-side (e.g.,
+        <code>/api/non-cached-query-us-east-1678886400000-123</code>), which are
+        handled by a SvelteKit dynamic route (<code>/api/[endpoint]</code>) to
+        ensure cache busting at CDN and application levels.
+      </p>
     </div>
   </section>
 
